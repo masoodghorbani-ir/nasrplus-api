@@ -1,0 +1,177 @@
+import { Model, Document, UpdateQuery } from 'mongoose';
+import {
+  MembershipType,
+  Specialization,
+  Rank,
+  NatureOfMembership,
+  AcademicField,
+  AcademicQualification,
+} from '../models';
+import {
+  IMembershipType,
+  ISpecialization,
+  IRank,
+  INatureOfMembership,
+  IAcademicField,
+  IAcademicQualification,
+} from '../interfaces';
+import { ApiError } from '../../../common/utils/api-error';
+
+export class LookupService {
+  private async getAllFromModel<T extends Document>(model: Model<T>, filter = {}): Promise<T[]> {
+    return await model.find(filter).sort({ title: 1 });
+  }
+
+  private async getByIdFromModel<T extends Document>(model: Model<T>, id: string, entityName: string): Promise<T> {
+    const item = await model.findById(id);
+    if (!item) {
+      throw ApiError.notFound(`${entityName} with ID '${id}' was not found`);
+    }
+    return item;
+  }
+
+  private async createInModel<T extends Document>(model: Model<T>, data: unknown): Promise<T> {
+    return (await model.create(data)) as unknown as T;
+  }
+
+  private async updateInModel<T extends Document>(
+    model: Model<T>,
+    id: string,
+    data: UpdateQuery<T>,
+    entityName: string
+  ): Promise<T> {
+    const updated = await model.findByIdAndUpdate(id, data, { new: true, runValidators: true });
+    if (!updated) {
+      throw ApiError.notFound(`${entityName} with ID '${id}' was not found`);
+    }
+    return updated as unknown as T;
+  }
+
+  private async deleteFromModel<T extends Document>(
+    model: Model<T>,
+    id: string,
+    entityName: string
+  ): Promise<T> {
+    const deleted = await model.findByIdAndDelete(id);
+    if (!deleted) {
+      throw ApiError.notFound(`${entityName} with ID '${id}' was not found`);
+    }
+    return deleted as unknown as T;
+  }
+
+  // --- Membership Types ---
+  async getMembershipTypes(): Promise<IMembershipType[]> {
+    return this.getAllFromModel(MembershipType);
+  }
+  async getMembershipTypeById(id: string): Promise<IMembershipType> {
+    return this.getByIdFromModel(MembershipType, id, 'Membership type');
+  }
+  async createMembershipType(data: Partial<IMembershipType>): Promise<IMembershipType> {
+    return this.createInModel(MembershipType, data);
+  }
+  async updateMembershipType(id: string, data: Partial<IMembershipType>): Promise<IMembershipType> {
+    return this.updateInModel(MembershipType, id, data, 'Membership type');
+  }
+  async deleteMembershipType(id: string): Promise<IMembershipType> {
+    return this.deleteFromModel(MembershipType, id, 'Membership type');
+  }
+
+  // --- Specializations ---
+  async getSpecializations(): Promise<ISpecialization[]> {
+    return this.getAllFromModel(Specialization);
+  }
+  async getSpecializationById(id: string): Promise<ISpecialization> {
+    return this.getByIdFromModel(Specialization, id, 'Specialization');
+  }
+  async createSpecialization(data: Partial<ISpecialization>): Promise<ISpecialization> {
+    return this.createInModel(Specialization, data);
+  }
+  async updateSpecialization(id: string, data: Partial<ISpecialization>): Promise<ISpecialization> {
+    return this.updateInModel(Specialization, id, data, 'Specialization');
+  }
+  async deleteSpecialization(id: string): Promise<ISpecialization> {
+    return this.deleteFromModel(Specialization, id, 'Specialization');
+  }
+
+  // --- Ranks ---
+  async getRanks(): Promise<IRank[]> {
+    return await Rank.find().sort({ level: 1, title: 1 });
+  }
+  async getRankById(id: string): Promise<IRank> {
+    return this.getByIdFromModel(Rank, id, 'Rank');
+  }
+  async createRank(data: Partial<IRank>): Promise<IRank> {
+    return this.createInModel(Rank, data);
+  }
+  async updateRank(id: string, data: Partial<IRank>): Promise<IRank> {
+    return this.updateInModel(Rank, id, data, 'Rank');
+  }
+  async deleteRank(id: string): Promise<IRank> {
+    return this.deleteFromModel(Rank, id, 'Rank');
+  }
+
+  // --- Nature of Membership ---
+  async getNatureOfMemberships(): Promise<INatureOfMembership[]> {
+    return this.getAllFromModel(NatureOfMembership);
+  }
+  async getNatureOfMembershipById(id: string): Promise<INatureOfMembership> {
+    return this.getByIdFromModel(NatureOfMembership, id, 'Nature of membership');
+  }
+  async createNatureOfMembership(data: Partial<INatureOfMembership>): Promise<INatureOfMembership> {
+    return this.createInModel(NatureOfMembership, data);
+  }
+  async updateNatureOfMembership(id: string, data: Partial<INatureOfMembership>): Promise<INatureOfMembership> {
+    return this.updateInModel(NatureOfMembership, id, data, 'Nature of membership');
+  }
+  async deleteNatureOfMembership(id: string): Promise<INatureOfMembership> {
+    return this.deleteFromModel(NatureOfMembership, id, 'Nature of membership');
+  }
+
+  // --- Academic Fields ---
+  async getAcademicFields(): Promise<IAcademicField[]> {
+    return this.getAllFromModel(AcademicField);
+  }
+  async getAcademicFieldById(id: string): Promise<IAcademicField> {
+    return this.getByIdFromModel(AcademicField, id, 'Academic field');
+  }
+  async createAcademicField(data: Partial<IAcademicField>): Promise<IAcademicField> {
+    return this.createInModel(AcademicField, data);
+  }
+  async updateAcademicField(id: string, data: Partial<IAcademicField>): Promise<IAcademicField> {
+    return this.updateInModel(AcademicField, id, data, 'Academic field');
+  }
+  async deleteAcademicField(id: string): Promise<IAcademicField> {
+    return this.deleteFromModel(AcademicField, id, 'Academic field');
+  }
+
+  // --- Academic Qualifications ---
+  async getAcademicQualifications(): Promise<IAcademicQualification[]> {
+    return await AcademicQualification.find()
+      .populate('academicField')
+      .sort({ title: 1 });
+  }
+  async getAcademicQualificationById(id: string): Promise<IAcademicQualification> {
+    const item = await AcademicQualification.findById(id).populate('academicField');
+    if (!item) {
+      throw ApiError.notFound(`Academic qualification with ID '${id}' was not found`);
+    }
+    return item;
+  }
+  async createAcademicQualification(data: Partial<IAcademicQualification>): Promise<IAcademicQualification> {
+    const created = await AcademicQualification.create(data);
+    return await created.populate('academicField');
+  }
+  async updateAcademicQualification(id: string, data: Partial<IAcademicQualification>): Promise<IAcademicQualification> {
+    const updated = await AcademicQualification.findByIdAndUpdate(id, data, {
+      new: true,
+      runValidators: true,
+    }).populate('academicField');
+    if (!updated) {
+      throw ApiError.notFound(`Academic qualification with ID '${id}' was not found`);
+    }
+    return updated;
+  }
+  async deleteAcademicQualification(id: string): Promise<IAcademicQualification> {
+    return this.deleteFromModel(AcademicQualification, id, 'Academic qualification');
+  }
+}

@@ -5,7 +5,7 @@ const natureOfMembershipSchema = new Schema<INatureOfMembership>(
   {
     title: {
       type: String,
-      required: [true, 'عنوان ماهیت عضویت الزامی است'],
+      required: [true, 'Nature of membership title is required'],
       trim: true,
       unique: true,
     },

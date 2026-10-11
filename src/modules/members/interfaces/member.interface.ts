@@ -8,40 +8,40 @@ import { ICompanyInformation } from '../../company/interfaces/company-informatio
 import { IMemberAddress } from './member-address.interface';
 import { IMemberTelephone } from './member-telephone.interface';
 
-export type MemberType = 'INDIVIDUAL' | 'LEGAL' | 'STORE'; // حقیقی، حقوقی، فروشگاهی
+export type MemberType = 'INDIVIDUAL' | 'LEGAL' | 'STORE'; // Individual, Legal Entity, Store
 export type MemberStatus = 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'EXPIRED' | 'REJECTED';
 export type Gender = 'MALE' | 'FEMALE' | 'OTHER';
 
 export interface IMember extends Document {
-  // --- کلیدهای خارجی دیاگرام (Foreign Keys) ---
-  membershipTypeId: Types.ObjectId | IMembershipType;                     // نوع عضویت
-  specializationId: Types.ObjectId | ISpecialization;                     // رسته / تخصص
-  rankId?: Types.ObjectId | IRank;                                        // رتبه / گرید
-  latestAcademicQualifications?: Types.ObjectId | IAcademicQualification; // آخرین مدرک تحصیلی
-  natureOfMembership: Types.ObjectId | INatureOfMembership;               // ماهیت عضویت
-  companyInformation?: Types.ObjectId | ICompanyInformation;             // اطلاعات شرکت وابسته
+  // --- ER Diagram Foreign Key References ---
+  membershipTypeId: Types.ObjectId | IMembershipType;                     // Membership Type reference
+  specializationId: Types.ObjectId | ISpecialization;                     // Specialization / Guild Branch reference
+  rankId?: Types.ObjectId | IRank;                                        // Rank / Grade reference
+  latestAcademicQualifications?: Types.ObjectId | IAcademicQualification; // Latest academic qualification reference
+  natureOfMembership: Types.ObjectId | INatureOfMembership;               // Nature of membership reference
+  companyInformation?: Types.ObjectId | ICompanyInformation;             // Company affiliation reference
 
-  // --- فیلدهای جامع هویتی و پرسنلی سازمان نظام صنفی ---
-  memberCode: string;               // شماره عضویت یکتا در نظام صنفی
-  memberType: MemberType;           // نوع عضو (حقیقی / حقوقی / فروشگاهی)
-  nationalCode?: string;            // کد ملی ۱۰ رقمی (برای اعضای حقیقی)
-  firstName?: string;               // نام
-  lastName?: string;                // نام خانوادگی
-  fatherName?: string;              // نام پدر
-  gender?: Gender;                  // جنسیت
-  birthDate?: Date;                 // تاریخ تولد
-  identityCertificateNumber?: string; // شماره شناسنامه
-  email?: string;                   // رایانامه / ایمیل
-  profileImage?: string;            // تصویر پرسنلی یا لوگو
-  status: MemberStatus;             // وضعیت عضویت در نظام صنفی
-  membershipDate: Date;             // تاریخ صدور یا شروع عضویت
-  expiryDate: Date;                 // تاریخ پایان اعتبار عضویت / پروانه
-  notes?: string;                   // یادداشت‌های سیستمی و توضیحات داخلی
+  // --- Guild Identity and Profile Fields ---
+  memberCode: string;               // Unique Guild Membership Number
+  memberType: MemberType;           // Entity type (Individual / Legal Entity / Store)
+  nationalCode?: string;            // 10-digit National ID (for individuals)
+  firstName?: string;               // First name
+  lastName?: string;                // Last name
+  fatherName?: string;              // Father's name
+  gender?: Gender;                  // Gender
+  birthDate?: Date;                 // Date of birth
+  identityCertificateNumber?: string; // Birth certificate number
+  email?: string;                   // Contact email address
+  profileImage?: string;            // Profile image or company logo URL
+  status: MemberStatus;             // Membership status in the guild
+  membershipDate: Date;             // Membership registration date
+  expiryDate: Date;                 // Membership / License expiration date
+  notes?: string;                   // Internal system notes and annotations
 
   createdAt: Date;
   updatedAt: Date;
 
-  // --- Virtual Properties ---
+  // --- Virtual Populated Fields ---
   addresses?: IMemberAddress[];
   telephones?: IMemberTelephone[];
   readonly fullName: string;

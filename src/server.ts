@@ -4,14 +4,14 @@ import { connectDatabase, disconnectDatabase } from './config/database';
 
 const startServer = async (): Promise<void> => {
   try {
-    // اتصال به پایگاه داده MongoDB
+    // Connect to MongoDB database
     await connectDatabase();
 
     const server = app.listen(envConfig.port, () => {
       console.log(`🚀 NasrPlus API server is running on port ${envConfig.port} in ${envConfig.nodeEnv} mode`);
     });
 
-    // مدیریت خروج تمیز (Graceful Shutdown)
+    // Handle graceful shutdown signals
     const gracefulShutdown = async (signal: string) => {
       console.log(`\nReceived ${signal}. Gracefully shutting down...`);
       server.close(async () => {

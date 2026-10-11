@@ -1,9 +1,9 @@
 import { Document } from 'mongoose';
 
 export interface IAcademicField extends Document {
-  title: string;          // عنوان رشته تحصیلی (مهندسی نرم‌افزار، هوش مصنوعی، فناوری اطلاعات، علوم کامپیوتر...)
-  code?: string;          // کد رشته تحصیلی وزارت علوم
-  isActive: boolean;      // وضعیت فعال/غیرفعال
+  title: string;          // Academic field title (Software Engineering, AI, Information Technology, Data Science, etc.)
+  code?: string;          // Ministry of Higher Education academic code
+  isActive: boolean;      // Active/Inactive status flag
   createdAt: Date;
   updatedAt: Date;
 }

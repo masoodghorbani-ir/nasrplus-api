@@ -5,7 +5,7 @@ const membershipTypeSchema = new Schema<IMembershipType>(
   {
     title: {
       type: String,
-      required: [true, 'عنوان نوع عضویت الزامی است'],
+      required: [true, 'Membership type title is required'],
       trim: true,
       unique: true,
     },

@@ -1,12 +1,12 @@
 // ==========================================
-// تمام مدل‌های پایگاه‌داده نظام صنفی رایانه‌ای
+// Centralized Database Models Export
 // ==========================================
 
-// جدول‌های پایه و اطلاعات تکمیلی (Lookups)
+// Base Lookup and Classification Models
 export * from '../modules/lookup/models';
 
-// جدول اطلاعات شرکت (Company Information)
+// Corporate Profiles Model
 export * from '../modules/company/models';
 
-// جدول‌های مرکزی و وابسته اعضا (Member, MemberAddress, MemberTelephone)
+// Core Member and Dependent Models (Member, MemberAddress, MemberTelephone)
 export * from '../modules/members/models';

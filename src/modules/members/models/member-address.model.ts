@@ -6,35 +6,35 @@ const memberAddressSchema = new Schema<IMemberAddress>(
     membershipId: {
       type: Schema.Types.ObjectId,
       ref: 'Member',
-      required: [true, 'شناسه عضو الزامی است'],
+      required: [true, 'Member ID reference is required'],
       index: true,
     },
     addressType: {
       type: String,
       enum: {
         values: ['WORK', 'HOME', 'CENTRAL_OFFICE', 'BRANCH', 'OTHER'],
-        message: 'نوع آدرس نامعتبر است',
+        message: 'Invalid address type provided',
       },
       default: 'WORK',
     },
     province: {
       type: String,
-      required: [true, 'نام استان الزامی است'],
+      required: [true, 'Province is required'],
       trim: true,
     },
     city: {
       type: String,
-      required: [true, 'نام شهر الزامی است'],
+      required: [true, 'City is required'],
       trim: true,
     },
     postalCode: {
       type: String,
       trim: true,
-      match: [/^[0-9]{10}$/, 'کد پستی باید ۱۰ رقم عددی باشد'],
+      match: [/^[0-9]{10}$/, 'Postal code must be a 10-digit number'],
     },
     address: {
       type: String,
-      required: [true, 'نشانی کامل الزامی است'],
+      required: [true, 'Full address is required'],
       trim: true,
     },
     plaque: {

@@ -5,7 +5,7 @@ const specializationSchema = new Schema<ISpecialization>(
   {
     title: {
       type: String,
-      required: [true, 'عنوان رسته/تخصص الزامی است'],
+      required: [true, 'Specialization title is required'],
       trim: true,
       unique: true,
     },

@@ -5,7 +5,7 @@ const academicFieldSchema = new Schema<IAcademicField>(
   {
     title: {
       type: String,
-      required: [true, 'عنوان رشته تحصیلی الزامی است'],
+      required: [true, 'Academic field title is required'],
       trim: true,
       unique: true,
     },

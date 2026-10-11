@@ -5,20 +5,20 @@ const academicQualificationSchema = new Schema<IAcademicQualification>(
   {
     title: {
       type: String,
-      required: [true, 'عنوان مدرک تحصیلی الزامی است'],
+      required: [true, 'Academic qualification title is required'],
       trim: true,
     },
     academicField: {
       type: Schema.Types.ObjectId,
       ref: 'AcademicField',
-      required: [true, 'انتخاب رشته تحصیلی الزامی است'],
+      required: [true, 'Academic field reference is required'],
       index: true,
     },
     degreeLevel: {
       type: String,
       enum: {
         values: ['DIPLOMA', 'ASSOCIATE', 'BACHELOR', 'MASTER', 'DOCTORATE', 'OTHER'],
-        message: 'مقطع تحصیلی وارد شده معتبر نیست',
+        message: 'Invalid degree level provided',
       },
       default: 'BACHELOR',
     },
@@ -29,8 +29,8 @@ const academicQualificationSchema = new Schema<IAcademicQualification>(
     },
     graduationYear: {
       type: Number,
-      min: 1300,
-      max: 1500,
+      min: 1900,
+      max: 2100,
     },
     isActive: {
       type: Boolean,

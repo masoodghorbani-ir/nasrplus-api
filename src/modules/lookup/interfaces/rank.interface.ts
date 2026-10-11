@@ -1,10 +1,10 @@
 import { Document } from 'mongoose';
 
 export interface IRank extends Document {
-  title: string;          // عنوان رتبه / گرید (مانند: رتبه ۱، رتبه ۲، پایه ۱، مشاور ارشد و...)
-  level?: number;         // مقدار عددی رتبه برای مرتب‌سازی و اولویت‌بندی
-  description?: string;   // توضیحات شرایط احراز رتبه
-  isActive: boolean;      // وضعیت فعال/غیرفعال
+  title: string;          // Rank title (e.g., Grade 1, Grade 2, Senior Consultant, etc.)
+  level?: number;         // Numeric level for sorting and precedence
+  description?: string;   // Qualification criteria and guidelines
+  isActive: boolean;      // Active/Inactive status flag
   createdAt: Date;
   updatedAt: Date;
 }

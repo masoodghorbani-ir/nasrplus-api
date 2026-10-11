@@ -3,17 +3,17 @@ import { Document, Types } from 'mongoose';
 export type AddressType = 'WORK' | 'HOME' | 'CENTRAL_OFFICE' | 'BRANCH' | 'OTHER';
 
 export interface IMemberAddress extends Document {
-  membershipId: Types.ObjectId;     // کلید خارجی ارجاع به جدول Members (مطابق دیاگرام)
-  addressType: AddressType;         // نوع آدرس (محل کار، سکونت، دفتر مرکزی، شعبه و...)
-  province: string;                 // استان
-  city: string;                     // شهر
-  postalCode?: string;              // کد پستی ۱۰ رقمی
-  address: string;                  // نشانی کامل پستی
-  plaque?: string;                  // پلاک
-  floor?: string;                   // طبقه
-  unit?: string;                    // واحد
-  postalBox?: string;               // صندوق پستی
-  isPrimary: boolean;               // آیا آدرس اصلی و رسمی مکاتبات است؟
+  membershipId: Types.ObjectId;     // Foreign key reference to Members collection
+  addressType: AddressType;         // Address classification (Work, Home, Central Office, Branch, etc.)
+  province: string;                 // Province / State
+  city: string;                     // City
+  postalCode?: string;              // 10-digit postal code
+  address: string;                  // Full street address
+  plaque?: string;                  // Building number / Plaque
+  floor?: string;                   // Floor number
+  unit?: string;                    // Unit number
+  postalBox?: string;               // P.O. Box
+  isPrimary: boolean;               // Primary correspondence address flag
   createdAt: Date;
   updatedAt: Date;
 }

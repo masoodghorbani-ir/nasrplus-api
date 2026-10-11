@@ -4,12 +4,12 @@ import { IAcademicField } from './academic-field.interface';
 export type DegreeLevel = 'DIPLOMA' | 'ASSOCIATE' | 'BACHELOR' | 'MASTER' | 'DOCTORATE' | 'OTHER';
 
 export interface IAcademicQualification extends Document {
-  title: string;                                // عنوان مدرک / مدرک تحصیلی (مانند: کارشناسی مهندسی نرم‌افزار)
-  academicField: Types.ObjectId | IAcademicField; // کلید خارجی ارجاع به رشته تحصیلی (academicField در دیاگرام)
-  degreeLevel?: DegreeLevel;                    // مقطع تحصیلی (کارشناسی، ارشد، دکترا و...)
-  institution?: string;                         // نام دانشگاه یا موسسه آموزشی
-  graduationYear?: number;                      // سال فارغ‌التحصیلی
-  isActive: boolean;                            // وضعیت فعال/غیرفعال
+  title: string;                                // Qualification / Degree title (e.g., Bachelor of Science in Software Engineering)
+  academicField: Types.ObjectId | IAcademicField; // Foreign reference to AcademicField
+  degreeLevel?: DegreeLevel;                    // Educational level
+  institution?: string;                         // Name of university or educational institution
+  graduationYear?: number;                      // Year of graduation
+  isActive: boolean;                            // Active/Inactive status flag
   createdAt: Date;
   updatedAt: Date;
 }

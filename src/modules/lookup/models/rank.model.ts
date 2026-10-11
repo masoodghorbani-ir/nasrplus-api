@@ -5,7 +5,7 @@ const rankSchema = new Schema<IRank>(
   {
     title: {
       type: String,
-      required: [true, 'عنوان رتبه الزامی است'],
+      required: [true, 'Rank title is required'],
       trim: true,
       unique: true,
     },

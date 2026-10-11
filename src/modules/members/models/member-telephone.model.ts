@@ -6,20 +6,20 @@ const memberTelephoneSchema = new Schema<IMemberTelephone>(
     membershipId: {
       type: Schema.Types.ObjectId,
       ref: 'Member',
-      required: [true, 'شناسه عضو الزامی است'],
+      required: [true, 'Member ID reference is required'],
       index: true,
     },
     phoneType: {
       type: String,
       enum: {
         values: ['MOBILE', 'LANDLINE', 'FAX', 'SUPPORT', 'OTHER'],
-        message: 'نوع تلفن نامعتبر است',
+        message: 'Invalid phone type provided',
       },
       default: 'MOBILE',
     },
     phoneNumber: {
       type: String,
-      required: [true, 'شماره تلفن الزامی است'],
+      required: [true, 'Phone number is required'],
       trim: true,
     },
     areaCode: {

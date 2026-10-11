@@ -5,7 +5,7 @@ const companyInformationSchema = new Schema<ICompanyInformation>(
   {
     title: {
       type: String,
-      required: [true, 'عنوان یا نام شرکت الزامی است'],
+      required: [true, 'Company title/name is required'],
       trim: true,
       index: true,
     },
@@ -21,7 +21,7 @@ const companyInformationSchema = new Schema<ICompanyInformation>(
           'STARTUP',
           'OTHER',
         ],
-        message: 'نوع ثبتی شرکت نامعتبر است',
+        message: 'Invalid company legal type provided',
       },
       default: 'PRIVATE_JOINT_STOCK',
     },
@@ -30,7 +30,7 @@ const companyInformationSchema = new Schema<ICompanyInformation>(
       trim: true,
       unique: true,
       sparse: true,
-      match: [/^[0-9]{11}$/, 'شناسه ملی شرکت باید ۱۱ رقم باشد'],
+      match: [/^[0-9]{11}$/, 'Company national ID must be an 11-digit number'],
     },
     registrationNumber: {
       type: String,

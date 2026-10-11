@@ -105,12 +105,17 @@ nasrplus/
 npm run dev
 ```
 
-### ۲. بیلد و بررسی خطاهای تایپ‌اسکریپت:
+### ۲. مقداردهی اولیه داده‌های پایه و نمونه (Seed Database):
+```bash
+npm run seed
+```
+
+### ۳. بیلد و بررسی خطاهای تایپ‌اسکریپت:
 ```bash
 npm run build
 ```
 
-### ۳. اجرای خروجی کامپایل‌شده (Production):
+### ۴. اجرای خروجی کامپایل‌شده (Production):
 ```bash
 npm start
 ```
@@ -122,4 +127,41 @@ npm start
 پس از اجرای سرور، مستندات کامل API از طریق آدرس‌های زیر در دسترس است:
 - **آدرس اصلی Swagger:** [http://localhost:5000/api-docs](http://localhost:5000/api-docs)
 - **آدرس میانبر:** [http://localhost:5000/docs](http://localhost:5000/docs)
+
+---
+
+## 🌐 خلاصه مسیرهای کامل API
+
+- **سیستم:**
+  - `GET /api/v1/health`
+- **اعضای صنف (Members):**
+  - `GET /api/v1/members` (صفحه‌بندی، جستجو و فیلترها)
+  - `POST /api/v1/members`
+  - `GET /api/v1/members/:id`
+  - `PUT /api/v1/members/:id`
+  - `DELETE /api/v1/members/:id`
+- **آدرس‌های اعضا (Member Addresses):**
+  - `GET /api/v1/members/:id/addresses`
+  - `POST /api/v1/members/:id/addresses`
+  - `PUT /api/v1/members/:id/addresses/:addressId`
+  - `DELETE /api/v1/members/:id/addresses/:addressId`
+- **تلفن‌های اعضا (Member Telephones):**
+  - `GET /api/v1/members/:id/telephones`
+  - `POST /api/v1/members/:id/telephones`
+  - `PUT /api/v1/members/:id/telephones/:telephoneId`
+  - `DELETE /api/v1/members/:id/telephones/:telephoneId`
+- **شرکت‌ها (Companies):**
+  - `GET /api/v1/companies`
+  - `POST /api/v1/companies`
+  - `GET /api/v1/companies/:id`
+  - `PUT /api/v1/companies/:id`
+  - `DELETE /api/v1/companies/:id`
+- **جداول پایه صنف (Lookups):**
+  - `/api/v1/lookups/membership-types` (CRUD)
+  - `/api/v1/lookups/specializations` (CRUD)
+  - `/api/v1/lookups/ranks` (CRUD)
+  - `/api/v1/lookups/nature-of-memberships` (CRUD)
+  - `/api/v1/lookups/academic-fields` (CRUD)
+  - `/api/v1/lookups/academic-qualifications` (CRUD)
+
 

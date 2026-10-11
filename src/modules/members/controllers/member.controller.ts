@@ -14,12 +14,14 @@ export class MemberController {
       const page = parseInt(req.query.page as string, 10) || 1;
       const limit = parseInt(req.query.limit as string, 10) || 20;
       const result = await this.memberService.getMembers(page, limit);
-      res.json(ApiResponse.success(result.items, 'لیست اعضا با موفقیت دریافت شد', {
-        total: result.total,
-        page: result.page,
-        limit: result.limit,
-        totalPages: result.totalPages,
-      }));
+      res.json(
+        ApiResponse.success(result.items, 'Members retrieved successfully', {
+          total: result.total,
+          page: result.page,
+          limit: result.limit,
+          totalPages: result.totalPages,
+        })
+      );
     } catch (error) {
       next(error);
     }
@@ -29,7 +31,7 @@ export class MemberController {
     try {
       const id = req.params.id as string;
       const member = await this.memberService.getMemberById(id);
-      res.json(ApiResponse.success(member, 'اطلاعات عضو دریافت شد'));
+      res.json(ApiResponse.success(member, 'Member details retrieved successfully'));
     } catch (error) {
       next(error);
     }
@@ -38,7 +40,27 @@ export class MemberController {
   createMember = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const created = await this.memberService.createMember(req.body);
-      res.status(201).json(ApiResponse.created(created, 'عضو جدید با موفقیت ثبت شد'));
+      res.status(201).json(ApiResponse.created(created, 'Member created successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  updateMember = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const id = req.params.id as string;
+      const updated = await this.memberService.updateMember(id, req.body);
+      res.json(ApiResponse.success(updated, 'Member updated successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  deleteMember = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const id = req.params.id as string;
+      const deleted = await this.memberService.deleteMember(id);
+      res.json(ApiResponse.success(deleted, 'Member deleted successfully'));
     } catch (error) {
       next(error);
     }

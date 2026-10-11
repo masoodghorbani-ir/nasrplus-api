@@ -12,7 +12,7 @@ export class MemberService {
   async getMemberById(id: string): Promise<IMember> {
     const member = await this.memberRepository.findById(id);
     if (!member) {
-      throw ApiError.notFound('عضو مورد نظر یافت نشد');
+      throw ApiError.notFound(`Member with ID '${id}' was not found`);
     }
     return member;
   }
@@ -35,5 +35,21 @@ export class MemberService {
 
   async createMember(data: Partial<IMember>): Promise<IMember> {
     return await this.memberRepository.create(data);
+  }
+
+  async updateMember(id: string, data: Partial<IMember>): Promise<IMember> {
+    const updated = await this.memberRepository.updateById(id, data);
+    if (!updated) {
+      throw ApiError.notFound(`Member with ID '${id}' was not found`);
+    }
+    return updated;
+  }
+
+  async deleteMember(id: string): Promise<IMember> {
+    const deleted = await this.memberRepository.deleteById(id);
+    if (!deleted) {
+      throw ApiError.notFound(`Member with ID '${id}' was not found`);
+    }
+    return deleted;
   }
 }

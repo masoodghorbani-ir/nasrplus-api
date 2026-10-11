@@ -11,8 +11,8 @@ import { memberRoutes } from './modules/members/routes/member.routes';
 
 const app: Application = express();
 
-// Middlewares امنیتی و عمومی
-// برای سازگاری کامل Swagger UI استایل‌ها و اسکریپت‌های اینلاین، CSP غیرفعال یا تنظیم می‌شود
+// Security and utility middlewares
+// Content-Security-Policy is disabled to allow inline Swagger UI styles and assets
 app.use(
   helmet({
     contentSecurityPolicy: false,
@@ -26,11 +26,11 @@ if (!envConfig.isProduction) {
   app.use(morgan('dev'));
 }
 
-// مستندات تعاملی Swagger
+// Swagger UI interactive documentation endpoints
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 app.get('/docs', (_req, res) => res.redirect('/api-docs'));
 
-// مسیر بررسی سلامت سرویس (Health Check)
+// Health check endpoint
 app.get('/api/v1/health', (_req, res) => {
   res.json({
     status: 'ok',
@@ -40,10 +40,10 @@ app.get('/api/v1/health', (_req, res) => {
   });
 });
 
-// مسیرهای ماژول‌ها
+// Resource module routes
 app.use('/api/v1/members', memberRoutes);
 
-// مدیریت خطاهای ۴۰۴ و سراسری
+// Global 404 and error-handling middlewares
 app.use(notFoundHandler);
 app.use(errorHandler);
 

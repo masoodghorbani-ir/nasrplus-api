@@ -13,27 +13,27 @@ export class ApiError extends Error {
     Error.captureStackTrace(this, this.constructor);
   }
 
-  static badRequest(message = 'درخواست نامعتبر است', details?: unknown): ApiError {
+  static badRequest(message = 'Invalid request parameters', details?: unknown): ApiError {
     return new ApiError(400, message, details);
   }
 
-  static unauthorized(message = 'عدم احراز هویت'): ApiError {
+  static unauthorized(message = 'Authentication required'): ApiError {
     return new ApiError(401, message);
   }
 
-  static forbidden(message = 'عدم دسترسی لازم'): ApiError {
+  static forbidden(message = 'Access forbidden: Insufficient permissions'): ApiError {
     return new ApiError(403, message);
   }
 
-  static notFound(message = 'مورد درخواستی یافت نشد'): ApiError {
+  static notFound(message = 'Requested resource not found'): ApiError {
     return new ApiError(404, message);
   }
 
-  static conflict(message = 'تعارض در اطلاعات ارسالی'): ApiError {
+  static conflict(message = 'Conflict with existing data'): ApiError {
     return new ApiError(409, message);
   }
 
-  static internal(message = 'خطای داخلی سرور'): ApiError {
+  static internal(message = 'Internal server error'): ApiError {
     return new ApiError(500, message, undefined, false);
   }
 }

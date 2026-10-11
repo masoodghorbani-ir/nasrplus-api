@@ -6,7 +6,7 @@ export interface ApiResponsePayload<T = unknown> {
 }
 
 export class ApiResponse {
-  static success<T>(data?: T, message = 'عملیات با موفقیت انجام شد', meta?: Record<string, unknown>): ApiResponsePayload<T> {
+  static success<T>(data?: T, message = 'Operation completed successfully', meta?: Record<string, unknown>): ApiResponsePayload<T> {
     return {
       success: true,
       message,
@@ -15,7 +15,7 @@ export class ApiResponse {
     };
   }
 
-  static created<T>(data?: T, message = 'رکورد با موفقیت ایجاد شد'): ApiResponsePayload<T> {
+  static created<T>(data?: T, message = 'Resource created successfully'): ApiResponsePayload<T> {
     return {
       success: true,
       message,
@@ -23,7 +23,7 @@ export class ApiResponse {
     };
   }
 
-  static error(message = 'خطایی رخ داد', data?: unknown): ApiResponsePayload {
+  static error(message = 'An error occurred during request processing', data?: unknown): ApiResponsePayload {
     return {
       success: false,
       message,

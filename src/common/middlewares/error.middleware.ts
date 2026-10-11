@@ -10,7 +10,7 @@ export const errorHandler = (
   _next: NextFunction
 ): void => {
   let statusCode = 500;
-  let message = 'خطای داخلی سرور رخ داده است';
+  let message = 'An unexpected internal server error occurred';
   let details: unknown = undefined;
 
   if (err instanceof ApiError) {
@@ -20,16 +20,16 @@ export const errorHandler = (
   } else if (err.name === 'ValidationError') {
     // Mongoose Validation Error
     statusCode = 400;
-    message = 'اطلاعات ارسالی نامعتبر است';
+    message = 'Validation Error: Invalid input parameters';
     details = err;
   } else if (err.name === 'CastError') {
     // Mongoose Cast Error (Invalid ObjectId)
     statusCode = 400;
-    message = 'فرمت شناسه نامعتبر است';
+    message = 'Invalid ID format provided';
   } else if ((err as { code?: number }).code === 11000) {
     // MongoDB Duplicate Key Error
     statusCode = 409;
-    message = 'اطلاعات تکراری است و قبلاً ثبت شده است';
+    message = 'Duplicate key error: Record with this unique value already exists';
   }
 
   res.status(statusCode).json({

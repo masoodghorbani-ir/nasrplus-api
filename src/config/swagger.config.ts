@@ -3,41 +3,48 @@ import { envConfig } from './env.config';
 export const swaggerDocument = {
   openapi: '3.0.0',
   info: {
-    title: 'سامانه جامع مدیریت اعضای سازمان نظام صنفی رایانه‌ای (NasrPlus API)',
+    title: 'NasrPlus - Computer Trade Guild Member Management API',
     version: '1.0.0',
-    description: 'مستندات Swagger برای وب‌سرویس‌های مدیریت اعضا، مدارک، تخصص‌ها، آدرس‌ها و اطلاعات تکمیلی نظام صنفی',
+    description:
+      'OpenAPI 3.0 specification for NasrPlus (Iranian Computer Trade Guild Organization). Provides endpoints for managing guild members, affiliations, classifications, qualifications, addresses, and contact numbers.',
     contact: {
-      name: 'پشتیبانی فنی نظام صنفی رایانه‌ای',
+      name: 'Technical Support & Development Team',
+      email: 'dev@nasrplus.ir',
     },
   },
   servers: [
     {
       url: `http://localhost:${envConfig.port}`,
-      description: 'سرور محلی توسعه (Development)',
+      description: 'Local Development Server',
     },
   ],
   tags: [
     {
       name: 'Members',
-      description: 'عملیات مربوط به اعضای صنف (حقیقی، حقوقی، فروشگاهی)',
+      description: 'Guild member profiles, registration, lifecycle, and detail operations',
     },
     {
       name: 'Lookups',
-      description: 'جداول و اطلاعات پایه (نوع عضویت، رسته، رتبه، مدرک و ماهیت عضویت)',
+      description: 'Base tables: Membership types, specializations, ranks, fields, and qualifications',
+    },
+    {
+      name: 'Company',
+      description: 'Corporate profiles and enterprise affiliations for legal entity members',
     },
     {
       name: 'System',
-      description: 'سرویس‌های سیستمی و بررسی سلامت سرور',
+      description: 'System health monitoring and runtime diagnostics',
     },
   ],
   paths: {
     '/api/v1/health': {
       get: {
         tags: ['System'],
-        summary: 'بررسی سلامت سرویس (Health Check)',
+        summary: 'Service health check',
+        description: 'Returns current service status, service name, and timestamp.',
         responses: {
           200: {
-            description: 'وضعیت سرویس فعال و متصل است',
+            description: 'Service is healthy and reachable',
             content: {
               'application/json': {
                 schema: {
@@ -45,7 +52,8 @@ export const swaggerDocument = {
                   properties: {
                     status: { type: 'string', example: 'ok' },
                     service: { type: 'string', example: 'NasrPlus Members Management API' },
-                    timestamp: { type: 'string', example: '2026-10-11T16:25:00.000Z' },
+                    swaggerDocs: { type: 'string', example: '/api-docs' },
+                    timestamp: { type: 'string', example: '2026-10-11T16:30:00.000Z' },
                   },
                 },
               },
@@ -57,26 +65,27 @@ export const swaggerDocument = {
     '/api/v1/members': {
       get: {
         tags: ['Members'],
-        summary: 'دریافت فهرست اعضای نظام صنفی همراه با صفحه‌بندی',
+        summary: 'Get paginated list of members',
+        description: 'Retrieves a list of guild members with pagination support and populated reference fields.',
         parameters: [
           {
             name: 'page',
             in: 'query',
-            description: 'شماره صفحه',
+            description: 'Page number (1-indexed)',
             required: false,
             schema: { type: 'integer', default: 1 },
           },
           {
             name: 'limit',
             in: 'query',
-            description: 'تعداد آیتم در هر صفحه',
+            description: 'Number of records per page',
             required: false,
             schema: { type: 'integer', default: 20 },
           },
         ],
         responses: {
           200: {
-            description: 'فهرست اعضا با موفقیت بازگردانده شد',
+            description: 'Members list retrieved successfully',
             content: {
               'application/json': {
                 schema: {
@@ -89,7 +98,8 @@ export const swaggerDocument = {
       },
       post: {
         tags: ['Members'],
-        summary: 'ثبت عضو جدید در نظام صنفی',
+        summary: 'Register a new member',
+        description: 'Creates a new member profile with foreign key relations and identity information.',
         requestBody: {
           required: true,
           content: {
@@ -102,7 +112,7 @@ export const swaggerDocument = {
         },
         responses: {
           201: {
-            description: 'عضو جدید با موفقیت ایجاد شد',
+            description: 'Member created successfully',
             content: {
               'application/json': {
                 schema: {
@@ -112,10 +122,20 @@ export const swaggerDocument = {
             },
           },
           400: {
-            description: 'اطلاعات ارسالی نامعتبر است',
+            description: 'Validation error: Invalid input data',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ApiErrorResponse' },
+              },
+            },
           },
           409: {
-            description: 'شماره عضویت یا کد ملی تکراری است',
+            description: 'Conflict: Member code or national code already registered',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ApiErrorResponse' },
+              },
+            },
           },
         },
       },
@@ -123,19 +143,20 @@ export const swaggerDocument = {
     '/api/v1/members/{id}': {
       get: {
         tags: ['Members'],
-        summary: 'دریافت جزئیات پرونده یک عضو با شناسه یکتا',
+        summary: 'Get member details by ID',
+        description: 'Fetches detailed member information including virtual-populated addresses and telephone numbers.',
         parameters: [
           {
             name: 'id',
             in: 'path',
             required: true,
-            description: 'شناسه یکتای عضو (MongoDB ObjectId)',
-            schema: { type: 'string' },
+            description: 'Unique member ID (MongoDB ObjectId)',
+            schema: { type: 'string', example: '67093bc2f9821a0012345678' },
           },
         ],
         responses: {
           200: {
-            description: 'اطلاعات عضو به همراه جداول وابسته دریافت شد',
+            description: 'Member details retrieved successfully',
             content: {
               'application/json': {
                 schema: {
@@ -145,7 +166,90 @@ export const swaggerDocument = {
             },
           },
           404: {
-            description: 'عضو مورد نظر یافت نشد',
+            description: 'Member not found',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ApiErrorResponse' },
+              },
+            },
+          },
+        },
+      },
+      put: {
+        tags: ['Members'],
+        summary: 'Update member profile by ID',
+        description: 'Updates specified fields for an existing member.',
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            description: 'Unique member ID (MongoDB ObjectId)',
+            schema: { type: 'string', example: '67093bc2f9821a0012345678' },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                $ref: '#/components/schemas/UpdateMemberInput',
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: 'Member updated successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ApiResponseMemberSingle',
+                },
+              },
+            },
+          },
+          404: {
+            description: 'Member not found',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ApiErrorResponse' },
+              },
+            },
+          },
+        },
+      },
+      delete: {
+        tags: ['Members'],
+        summary: 'Delete member by ID',
+        description: 'Permanently removes a member record from the system.',
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            description: 'Unique member ID (MongoDB ObjectId)',
+            schema: { type: 'string', example: '67093bc2f9821a0012345678' },
+          },
+        ],
+        responses: {
+          200: {
+            description: 'Member deleted successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ApiResponseMemberSingle',
+                },
+              },
+            },
+          },
+          404: {
+            description: 'Member not found',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ApiErrorResponse' },
+              },
+            },
           },
         },
       },
@@ -157,16 +261,17 @@ export const swaggerDocument = {
         type: 'object',
         properties: {
           _id: { type: 'string', example: '67093bc2f9821a0012345678' },
-          memberCode: { type: 'string', example: '21010045' },
+          memberCode: { type: 'string', description: 'Unique Guild Membership Code', example: '21010045' },
           memberType: {
             type: 'string',
             enum: ['INDIVIDUAL', 'LEGAL', 'STORE'],
+            description: 'Member entity classification',
             example: 'INDIVIDUAL',
           },
-          nationalCode: { type: 'string', example: '0012345678' },
-          firstName: { type: 'string', example: 'مسعود' },
-          lastName: { type: 'string', example: 'محمدی' },
-          fatherName: { type: 'string', example: 'علی' },
+          nationalCode: { type: 'string', description: '10-digit National ID (for individuals)', example: '0012345678' },
+          firstName: { type: 'string', example: 'Masoud' },
+          lastName: { type: 'string', example: 'Mohammadi' },
+          fatherName: { type: 'string', example: 'Ali' },
           gender: { type: 'string', enum: ['MALE', 'FEMALE', 'OTHER'], example: 'MALE' },
           birthDate: { type: 'string', format: 'date', example: '1990-05-21' },
           status: {
@@ -174,14 +279,22 @@ export const swaggerDocument = {
             enum: ['PENDING', 'ACTIVE', 'SUSPENDED', 'EXPIRED', 'REJECTED'],
             example: 'ACTIVE',
           },
-          membershipTypeId: { type: 'string', description: 'شناسه نوع عضویت (MembershipType)' },
-          specializationId: { type: 'string', description: 'شناسه رسته/تخصص (Specialization)' },
-          rankId: { type: 'string', description: 'شناسه رتبه/گرید (Rank)' },
-          latestAcademicQualifications: { type: 'string', description: 'شناسه مدرک تحصیلی (AcademicQualification)' },
-          natureOfMembership: { type: 'string', description: 'شناسه ماهیت عضویت (NatureOfMembership)' },
-          companyInformation: { type: 'string', description: 'شناسه اطلاعات شرکت (CompanyInformation)' },
+          membershipTypeId: { type: 'string', description: 'Reference ID to MembershipType' },
+          specializationId: { type: 'string', description: 'Reference ID to Specialization' },
+          rankId: { type: 'string', description: 'Reference ID to Rank (Grade)' },
+          latestAcademicQualifications: { type: 'string', description: 'Reference ID to AcademicQualification' },
+          natureOfMembership: { type: 'string', description: 'Reference ID to NatureOfMembership' },
+          companyInformation: { type: 'string', description: 'Reference ID to CompanyInformation' },
           membershipDate: { type: 'string', format: 'date-time' },
           expiryDate: { type: 'string', format: 'date-time' },
+          addresses: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/MemberAddress' },
+          },
+          telephones: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/MemberTelephone' },
+          },
           createdAt: { type: 'string', format: 'date-time' },
           updatedAt: { type: 'string', format: 'date-time' },
         },
@@ -198,8 +311,11 @@ export const swaggerDocument = {
           memberCode: { type: 'string', example: '21010045' },
           memberType: { type: 'string', enum: ['INDIVIDUAL', 'LEGAL', 'STORE'], default: 'INDIVIDUAL' },
           nationalCode: { type: 'string', example: '0012345678' },
-          firstName: { type: 'string', example: 'مسعود' },
-          lastName: { type: 'string', example: 'محمدی' },
+          firstName: { type: 'string', example: 'Masoud' },
+          lastName: { type: 'string', example: 'Mohammadi' },
+          fatherName: { type: 'string', example: 'Ali' },
+          gender: { type: 'string', enum: ['MALE', 'FEMALE', 'OTHER'], example: 'MALE' },
+          birthDate: { type: 'string', format: 'date', example: '1990-05-21' },
           membershipTypeId: { type: 'string', example: '67093bc2f9821a0012345671' },
           specializationId: { type: 'string', example: '67093bc2f9821a0012345672' },
           rankId: { type: 'string', example: '67093bc2f9821a0012345673' },
@@ -208,16 +324,38 @@ export const swaggerDocument = {
           companyInformation: { type: 'string', example: '67093bc2f9821a0012345676' },
         },
       },
+      UpdateMemberInput: {
+        type: 'object',
+        properties: {
+          memberType: { type: 'string', enum: ['INDIVIDUAL', 'LEGAL', 'STORE'] },
+          firstName: { type: 'string', example: 'Masoud' },
+          lastName: { type: 'string', example: 'Mohammadi' },
+          fatherName: { type: 'string', example: 'Ali' },
+          gender: { type: 'string', enum: ['MALE', 'FEMALE', 'OTHER'] },
+          status: { type: 'string', enum: ['PENDING', 'ACTIVE', 'SUSPENDED', 'EXPIRED', 'REJECTED'] },
+          specializationId: { type: 'string' },
+          rankId: { type: 'string' },
+          latestAcademicQualifications: { type: 'string' },
+          natureOfMembership: { type: 'string' },
+          companyInformation: { type: 'string' },
+          expiryDate: { type: 'string', format: 'date-time' },
+          notes: { type: 'string' },
+        },
+      },
       MemberAddress: {
         type: 'object',
         properties: {
           _id: { type: 'string' },
-          membershipId: { type: 'string', description: 'ارجاع به شناسه عضو' },
-          addressType: { type: 'string', enum: ['WORK', 'HOME', 'CENTRAL_OFFICE', 'BRANCH', 'OTHER'] },
-          province: { type: 'string', example: 'تهران' },
-          city: { type: 'string', example: 'تهران' },
+          membershipId: { type: 'string', description: 'Foreign reference to Member ID' },
+          addressType: {
+            type: 'string',
+            enum: ['WORK', 'HOME', 'CENTRAL_OFFICE', 'BRANCH', 'OTHER'],
+            example: 'WORK',
+          },
+          province: { type: 'string', example: 'Tehran' },
+          city: { type: 'string', example: 'Tehran' },
           postalCode: { type: 'string', example: '1417755331' },
-          address: { type: 'string', example: 'خیابان مطهری، پلاک ۱۲، واحد ۴' },
+          address: { type: 'string', example: 'Motahari St, No 12, Unit 4' },
           isPrimary: { type: 'boolean', example: true },
         },
       },
@@ -225,8 +363,12 @@ export const swaggerDocument = {
         type: 'object',
         properties: {
           _id: { type: 'string' },
-          membershipId: { type: 'string', description: 'ارجاع به شناسه عضو' },
-          phoneType: { type: 'string', enum: ['MOBILE', 'LANDLINE', 'FAX', 'SUPPORT', 'OTHER'] },
+          membershipId: { type: 'string', description: 'Foreign reference to Member ID' },
+          phoneType: {
+            type: 'string',
+            enum: ['MOBILE', 'LANDLINE', 'FAX', 'SUPPORT', 'OTHER'],
+            example: 'MOBILE',
+          },
           phoneNumber: { type: 'string', example: '09121234567' },
           areaCode: { type: 'string', example: '021' },
           countryCode: { type: 'string', example: '+98' },
@@ -238,7 +380,7 @@ export const swaggerDocument = {
         type: 'object',
         properties: {
           _id: { type: 'string' },
-          title: { type: 'string', example: 'عضو حقیقی' },
+          title: { type: 'string', example: 'Individual Member' },
           code: { type: 'string', example: 'INDIVIDUAL' },
           isActive: { type: 'boolean', default: true },
         },
@@ -247,7 +389,7 @@ export const swaggerDocument = {
         type: 'object',
         properties: {
           _id: { type: 'string' },
-          title: { type: 'string', example: 'نرم‌افزار و سامانه‌های اطلاعاتی' },
+          title: { type: 'string', example: 'Software and Information Systems' },
           code: { type: 'string', example: 'SOFTWARE' },
           isActive: { type: 'boolean', default: true },
         },
@@ -256,7 +398,7 @@ export const swaggerDocument = {
         type: 'object',
         properties: {
           _id: { type: 'string' },
-          title: { type: 'string', example: 'پایه ۱ (رتبه ۱)' },
+          title: { type: 'string', example: 'Grade 1' },
           level: { type: 'number', example: 1 },
           isActive: { type: 'boolean', default: true },
         },
@@ -265,7 +407,7 @@ export const swaggerDocument = {
         type: 'object',
         properties: {
           _id: { type: 'string' },
-          title: { type: 'string', example: 'مهندسی کامپیوتر' },
+          title: { type: 'string', example: 'Computer Science and Engineering' },
           isActive: { type: 'boolean', default: true },
         },
       },
@@ -273,17 +415,17 @@ export const swaggerDocument = {
         type: 'object',
         properties: {
           _id: { type: 'string' },
-          title: { type: 'string', example: 'کارشناسی ارشد مهندسی نرم‌افزار' },
-          academicField: { type: 'string', description: 'ارجاع به رشته تحصیلی' },
+          title: { type: 'string', example: 'Master of Science in Software Engineering' },
+          academicField: { type: 'string', description: 'Foreign key to AcademicField' },
           degreeLevel: { type: 'string', example: 'MASTER' },
-          institution: { type: 'string', example: 'دانشگاه تهران' },
+          institution: { type: 'string', example: 'University of Tehran' },
         },
       },
       NatureOfMembership: {
         type: 'object',
         properties: {
           _id: { type: 'string' },
-          title: { type: 'string', example: 'پیوسته' },
+          title: { type: 'string', example: 'Continuous' },
           code: { type: 'string', example: 'CONTINUOUS' },
         },
       },
@@ -291,17 +433,17 @@ export const swaggerDocument = {
         type: 'object',
         properties: {
           _id: { type: 'string' },
-          title: { type: 'string', example: 'شرکت داده‌پردازی نصر' },
+          title: { type: 'string', example: 'Nasr Data Solutions Co.' },
           nationalId: { type: 'string', example: '10101234567' },
           registrationNumber: { type: 'string', example: '456789' },
-          ceoName: { type: 'string', example: 'علی رضایی' },
+          ceoName: { type: 'string', example: 'Ali Rezaei' },
         },
       },
       ApiResponseMemberList: {
         type: 'object',
         properties: {
           success: { type: 'boolean', example: true },
-          message: { type: 'string', example: 'لیست اعضا با موفقیت دریافت شد' },
+          message: { type: 'string', example: 'Members retrieved successfully' },
           data: {
             type: 'array',
             items: { $ref: '#/components/schemas/Member' },
@@ -321,8 +463,16 @@ export const swaggerDocument = {
         type: 'object',
         properties: {
           success: { type: 'boolean', example: true },
-          message: { type: 'string', example: 'اطلاعات عضو دریافت شد' },
+          message: { type: 'string', example: 'Member details retrieved successfully' },
           data: { $ref: '#/components/schemas/Member' },
+        },
+      },
+      ApiErrorResponse: {
+        type: 'object',
+        properties: {
+          success: { type: 'boolean', example: false },
+          message: { type: 'string', example: 'Validation Error: Invalid input parameters' },
+          details: { type: 'object' },
         },
       },
     },

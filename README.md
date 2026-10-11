@@ -114,3 +114,12 @@ npm run build
 ```bash
 npm start
 ```
+
+---
+
+## 📖 مستندات تعاملی Swagger
+
+پس از اجرای سرور، مستندات کامل API از طریق آدرس‌های زیر در دسترس است:
+- **آدرس اصلی Swagger:** [http://localhost:5000/api-docs](http://localhost:5000/api-docs)
+- **آدرس میانبر:** [http://localhost:5000/docs](http://localhost:5000/docs)
+

@@ -680,10 +680,12 @@ export const swaggerDocument = {
             'application/json': {
               schema: {
                 type: 'object',
-                required: ['title'],
+                required: ['title', 'key'],
                 properties: {
-                  title: { type: 'string', example: 'Continuous' },
-                  code: { type: 'string', example: 'CONTINUOUS' },
+                  title: { type: 'string', example: 'حقیقی' },
+                  key: { type: 'string', enum: ['Real', 'Legal'], example: 'Real' },
+                  description: { type: 'string', example: 'عضویت اشخاص حقیقی' },
+                  isActive: { type: 'boolean', example: true },
                 },
               },
             },

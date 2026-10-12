@@ -1,4 +1,5 @@
 export * from './membership-type.seed';
+export * from './nature-of-membership.seed';
 export * from './specialization.seed';
 export * from './rank.seed';
 export * from './degree-level.seed';

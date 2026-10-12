@@ -1,5 +1,6 @@
 import { Model } from 'mongoose';
 import { IMembershipType } from '../../modules/lookup/interfaces/membership-type.interface';
+import { INatureOfMembership } from '../../modules/lookup/interfaces/nature-of-membership.interface';
 import { ISpecialization } from '../../modules/lookup/interfaces/specialization.interface';
 import { IRank } from '../../modules/lookup/interfaces/rank.interface';
 import { IDegreeLevel } from '../../modules/lookup/interfaces/degree-level.interface';
@@ -16,6 +17,7 @@ export interface SeedItemMeta {
 }
 
 export type SeedMembershipTypeItem = Partial<IMembershipType> & SeedItemMeta;
+export type SeedNatureOfMembershipItem = Partial<INatureOfMembership> & SeedItemMeta;
 export type SeedSpecializationItem = Partial<ISpecialization> & SeedItemMeta;
 export type SeedRankItem = Partial<IRank> & SeedItemMeta;
 export type SeedDegreeLevelItem = Partial<IDegreeLevel> & SeedItemMeta;
@@ -50,6 +52,7 @@ export interface SeedDataConfiguration {
   forceInsertBySeed: boolean;
   tables: {
     membershipType: SeedTableConfig<SeedMembershipTypeItem>;
+    natureOfMembership: SeedTableConfig<SeedNatureOfMembershipItem>;
     specialization: SeedTableConfig<SeedSpecializationItem>;
     rank: SeedTableConfig<SeedRankItem>;
     degreeLevel: SeedTableConfig<SeedDegreeLevelItem>;

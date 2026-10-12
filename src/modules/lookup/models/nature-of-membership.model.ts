@@ -1,5 +1,8 @@
 import { Schema, model } from 'mongoose';
-import { INatureOfMembership } from '../interfaces/nature-of-membership.interface';
+import {
+  INatureOfMembership,
+  NatureOfMembershipKey,
+} from '../interfaces/nature-of-membership.interface';
 
 const natureOfMembershipSchema = new Schema<INatureOfMembership>(
   {
@@ -9,12 +12,15 @@ const natureOfMembershipSchema = new Schema<INatureOfMembership>(
       trim: true,
       unique: true,
     },
-    code: {
+    key: {
       type: String,
+      required: [true, 'Nature of membership key is required'],
+      enum: {
+        values: Object.values(NatureOfMembershipKey),
+        message: 'Key must be either Real or Legal',
+      },
       trim: true,
       unique: true,
-      sparse: true,
-      uppercase: true,
     },
     description: {
       type: String,
@@ -33,6 +39,7 @@ const natureOfMembershipSchema = new Schema<INatureOfMembership>(
 );
 
 natureOfMembershipSchema.index({ title: 1 });
+natureOfMembershipSchema.index({ key: 1 });
 
 export const NatureOfMembership = model<INatureOfMembership>(
   'NatureOfMembership',

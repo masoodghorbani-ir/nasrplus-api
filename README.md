@@ -91,7 +91,7 @@ nasrplus/
 | **Academic Field** | `AcademicField` | رشته تحصیلی دانشگاهی (مهندسی نرم‌افزار، هوش مصنوعی و...) |
 | **Degree Level** | `DegreeLevel` | مقطع تحصیلی (دیپلم، کاردانی، کارشناسی، ارشد، دکتری) |
 | **Academic qualifications** | `AcademicQualification` | مدارک تحصیلی؛ دارای ارجاع به `AcademicField` و `DegreeLevel` |
-| **Nature Of Membership** | `NatureOfMembership` | ماهیت عضویت (پیوسته، وابسته، افتخاری، دائم، موقت) |
+| **Nature Of Membership** | `NatureOfMembership` | ماهیت عضویت (حقیقی Real، حقوقی Legal) |
 | **Company Information** | `CompanyInformation` | اطلاعات ثبتی، شناسه ملی، نام شرکت و مشخصات مدیرعامل |
 | **Members** | `Member` | جدول مرکزی؛ ارجاع به ۶ جدول فوق به‌همراه فیلدهای هویتی و پرسنلی صنف |
 | **Members Address** | `MemberAddress` | آدرس‌های عضو؛ دارای ارجاع `membershipId` به جدول `Member` |

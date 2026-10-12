@@ -1,6 +1,7 @@
 import { SeedDataConfiguration } from './types';
 import {
   membershipTypeSeed,
+  natureOfMembershipSeed,
   specializationSeed,
   rankSeed,
   degreeLevelSeed,
@@ -22,6 +23,7 @@ export const seedDataConfig: SeedDataConfiguration = {
 
   tables: {
     membershipType: membershipTypeSeed,
+    natureOfMembership: natureOfMembershipSeed,
     specialization: specializationSeed,
     rank: rankSeed,
     degreeLevel: degreeLevelSeed,

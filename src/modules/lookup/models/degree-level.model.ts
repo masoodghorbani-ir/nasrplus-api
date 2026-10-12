@@ -9,17 +9,6 @@ const degreeLevelSchema = new Schema<IDegreeLevel>(
       trim: true,
       unique: true,
     },
-    code: {
-      type: String,
-      trim: true,
-      unique: true,
-      sparse: true,
-      uppercase: true,
-    },
-    level: {
-      type: Number,
-      min: 1,
-    },
     description: {
       type: String,
       trim: true,
@@ -37,6 +26,5 @@ const degreeLevelSchema = new Schema<IDegreeLevel>(
 );
 
 degreeLevelSchema.index({ title: 1 });
-degreeLevelSchema.index({ level: 1 });
 
 export const DegreeLevel = model<IDegreeLevel>('DegreeLevel', degreeLevelSchema);

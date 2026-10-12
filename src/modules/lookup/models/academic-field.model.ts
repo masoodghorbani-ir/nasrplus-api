@@ -9,12 +9,6 @@ const academicFieldSchema = new Schema<IAcademicField>(
       trim: true,
       unique: true,
     },
-    code: {
-      type: String,
-      trim: true,
-      unique: true,
-      sparse: true,
-    },
     isActive: {
       type: Boolean,
       default: true,

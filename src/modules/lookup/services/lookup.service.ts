@@ -148,7 +148,7 @@ export class LookupService {
 
   // --- Degree Levels ---
   async getDegreeLevels(): Promise<IDegreeLevel[]> {
-    return await DegreeLevel.find().sort({ level: 1, title: 1 });
+    return this.getAllFromModel(DegreeLevel);
   }
   async getDegreeLevelById(id: string): Promise<IDegreeLevel> {
     return this.getByIdFromModel(DegreeLevel, id, 'Degree level');

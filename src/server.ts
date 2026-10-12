@@ -1,11 +1,15 @@
 import app from './app';
 import { envConfig } from './config/env.config';
 import { connectDatabase, disconnectDatabase } from './config/database';
+import { seedDatabase } from './database/seeds';
 
 const startServer = async (): Promise<void> => {
   try {
     // Connect to MongoDB database
     await connectDatabase();
+
+    // Execute initial seed for default lookup tables
+    await seedDatabase();
 
     const server = app.listen(envConfig.port, () => {
       console.log(`🚀 NasrPlus API server is running on port ${envConfig.port} in ${envConfig.nodeEnv} mode`);

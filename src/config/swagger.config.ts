@@ -609,7 +609,6 @@ export const swaggerDocument = {
                 required: ['title'],
                 properties: {
                   title: { type: 'string', example: 'Computer Engineering' },
-                  code: { type: 'string', example: 'CE' },
                 },
               },
             },
@@ -661,8 +660,6 @@ export const swaggerDocument = {
                 required: ['title'],
                 properties: {
                   title: { type: 'string', example: 'کارشناسی' },
-                  code: { type: 'string', example: 'BACHELOR' },
-                  level: { type: 'integer', example: 3 },
                   description: { type: 'string', example: 'Bachelor Degree' },
                 },
               },

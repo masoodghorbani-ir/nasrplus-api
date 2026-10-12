@@ -1,0 +1,10 @@
+---
+description: Code comments style and language standards
+alwaysApply: true
+---
+
+# Code Comments Standards
+
+- Always write code comments in **English**.
+- Keep comments **short, concise, and focused** (avoid verbose descriptions).
+- Do not write Persian or non-English comments in code files.

@@ -10,22 +10,22 @@ const memberAddressSchema = new Schema<IMemberAddress>(
       index: true,
     },
     addressType: {
-      type: String,
-      enum: {
-        values: ['WORK', 'HOME', 'CENTRAL_OFFICE', 'BRANCH', 'OTHER'],
-        message: 'Invalid address type provided',
-      },
-      default: 'WORK',
+      type: Schema.Types.ObjectId,
+      ref: 'AddressType',
+      required: [true, 'Address type reference is required'],
+      index: true,
     },
     province: {
-      type: String,
-      required: [true, 'Province is required'],
-      trim: true,
+      type: Schema.Types.ObjectId,
+      ref: 'Province',
+      required: [true, 'Province reference is required'],
+      index: true,
     },
     city: {
-      type: String,
-      required: [true, 'City is required'],
-      trim: true,
+      type: Schema.Types.ObjectId,
+      ref: 'City',
+      required: [true, 'City reference is required'],
+      index: true,
     },
     postalCode: {
       type: String,
@@ -38,21 +38,6 @@ const memberAddressSchema = new Schema<IMemberAddress>(
       trim: true,
     },
     plaque: {
-      type: String,
-      trim: true,
-      default: '',
-    },
-    floor: {
-      type: String,
-      trim: true,
-      default: '',
-    },
-    unit: {
-      type: String,
-      trim: true,
-      default: '',
-    },
-    postalBox: {
       type: String,
       trim: true,
       default: '',

@@ -5,6 +5,11 @@ import {
   rankSeed,
   degreeLevelSeed,
   academicFieldSeed,
+  addressTypeSeed,
+  provinceSeed,
+  citySeed,
+  permissionSeed,
+  adminSeed,
 } from './data';
 
 /**
@@ -21,5 +26,10 @@ export const seedDataConfig: SeedDataConfiguration = {
     rank: rankSeed,
     degreeLevel: degreeLevelSeed,
     academicField: academicFieldSeed,
+    addressType: addressTypeSeed,
+    province: provinceSeed,
+    city: citySeed,
+    permission: permissionSeed,
+    admin: adminSeed,
   },
 };

@@ -1,0 +1,43 @@
+import { Province } from '../../../modules/lookup/models';
+import { SeedTableConfig, SeedProvinceItem } from '../types';
+
+/** Seed data for 31 Iranian Provinces */
+export const provinceSeed: SeedTableConfig<SeedProvinceItem> = {
+  tableName: 'Province',
+  model: Province,
+  forceInsertBySeed: false,
+  uniqueKey: 'title',
+  data: [
+    { title: 'تهران', code: 'TEHRAN', isActive: true },
+    { title: 'اصفهان', code: 'ISFAHAN', isActive: true },
+    { title: 'فارس', code: 'FARS', isActive: true },
+    { title: 'خراسان رضوی', code: 'KHORASAN_RAZAVI', isActive: true },
+    { title: 'آذربایجان شرقی', code: 'EAST_AZERBAIJAN', isActive: true },
+    { title: 'آذربایجان غربی', code: 'WEST_AZERBAIJAN', isActive: true },
+    { title: 'مازندران', code: 'MAZANDARAN', isActive: true },
+    { title: 'خوزستان', code: 'KHUZESTAN', isActive: true },
+    { title: 'البرز', code: 'ALBORZ', isActive: true },
+    { title: 'گیلان', code: 'GILAN', isActive: true },
+    { title: 'کرمان', code: 'KERMAN', isActive: true },
+    { title: 'کرمانشاه', code: 'KERMANSHAH', isActive: true },
+    { title: 'یزد', code: 'YAZD', isActive: true },
+    { title: 'هرمزگان', code: 'HORMOZGAN', isActive: true },
+    { title: 'همدان', code: 'HAMADAN', isActive: true },
+    { title: 'قزوین', code: 'QAZVIN', isActive: true },
+    { title: 'کردستان', code: 'KURDISTAN', isActive: true },
+    { title: 'گلستان', code: 'GOLESTAN', isActive: true },
+    { title: 'مرکزی', code: 'MARKAZI', isActive: true },
+    { title: 'قم', code: 'QOM', isActive: true },
+    { title: 'لرستان', code: 'LORESTAN', isActive: true },
+    { title: 'اردبیل', code: 'ARDABIL', isActive: true },
+    { title: 'سیستان و بلوچستان', code: 'SISTAN_BALUCHESTAN', isActive: true },
+    { title: 'بوشهر', code: 'BUSHEHR', isActive: true },
+    { title: 'زنجان', code: 'ZANJAN', isActive: true },
+    { title: 'سمنان', code: 'SEMNAN', isActive: true },
+    { title: 'چهارمحال و بختیاری', code: 'CHAHARMAHAL_BAKHTIARI', isActive: true },
+    { title: 'خراسان جنوبی', code: 'SOUTH_KHORASAN', isActive: true },
+    { title: 'خراسان شمالی', code: 'NORTH_KHORASAN', isActive: true },
+    { title: 'کهگیلویه و بویراحمد', code: 'KOHGILUYEH_BOYERAHMAD', isActive: true },
+    { title: 'ایلام', code: 'ILAM', isActive: true },
+  ],
+};

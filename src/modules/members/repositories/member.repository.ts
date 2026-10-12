@@ -26,7 +26,14 @@ export class MemberRepository {
         ],
       })
       .populate('companyInformation')
-      .populate('addresses')
+      .populate({
+        path: 'addresses',
+        populate: [
+          { path: 'addressType' },
+          { path: 'province' },
+          { path: 'city' },
+        ],
+      })
       .populate('telephones');
   }
 
@@ -60,11 +67,18 @@ export class MemberRepository {
 
   // --- Member Address Operations ---
   async findAddressesByMemberId(membershipId: string): Promise<IMemberAddress[]> {
-    return await MemberAddress.find({ membershipId }).sort({ isPrimary: -1, createdAt: -1 });
+    return await MemberAddress.find({ membershipId })
+      .populate('addressType')
+      .populate('province')
+      .populate('city')
+      .sort({ isPrimary: -1, createdAt: -1 });
   }
 
   async findAddressById(addressId: string, membershipId: string): Promise<IMemberAddress | null> {
-    return await MemberAddress.findOne({ _id: addressId, membershipId });
+    return await MemberAddress.findOne({ _id: addressId, membershipId })
+      .populate('addressType')
+      .populate('province')
+      .populate('city');
   }
 
   async createAddress(data: Partial<IMemberAddress>): Promise<IMemberAddress> {
@@ -72,7 +86,8 @@ export class MemberRepository {
       // Unset other primary addresses for this member
       await MemberAddress.updateMany({ membershipId: data.membershipId }, { isPrimary: false });
     }
-    return await MemberAddress.create(data);
+    const created = await MemberAddress.create(data);
+    return await created.populate(['addressType', 'province', 'city']);
   }
 
   async updateAddress(
@@ -86,7 +101,7 @@ export class MemberRepository {
     return await MemberAddress.findOneAndUpdate({ _id: addressId, membershipId }, data, {
       new: true,
       runValidators: true,
-    });
+    }).populate(['addressType', 'province', 'city']);
   }
 
   async deleteAddress(addressId: string, membershipId: string): Promise<IMemberAddress | null> {

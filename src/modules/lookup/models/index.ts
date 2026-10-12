@@ -5,3 +5,6 @@ export * from './nature-of-membership.model';
 export * from './academic-field.model';
 export * from './degree-level.model';
 export * from './academic-qualification.model';
+export * from './address-type.model';
+export * from './province.model';
+export * from './city.model';

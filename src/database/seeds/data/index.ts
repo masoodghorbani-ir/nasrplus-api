@@ -3,3 +3,8 @@ export * from './specialization.seed';
 export * from './rank.seed';
 export * from './degree-level.seed';
 export * from './academic-field.seed';
+export * from './address-type.seed';
+export * from './province.seed';
+export * from './city.seed';
+export * from './permission.seed';
+export * from './admin.seed';

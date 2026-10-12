@@ -29,9 +29,135 @@ export const swaggerDocument = {
     { name: 'Lookups - Nature of Memberships', description: 'Membership legal nature (Continuous, Associate, etc.)' },
     { name: 'Lookups - Academic Fields', description: 'Higher education university fields' },
     { name: 'Lookups - Academic Qualifications', description: 'Degrees and educational qualifications' },
+    { name: 'Auth', description: 'Authentication and identity management' },
+    { name: 'Admins', description: 'Administrative accounts and permissions (Superadmin)' },
     { name: 'System', description: 'Service health check and runtime status' },
   ],
   paths: {
+    // -------------------------------------------------------------
+    // AUTHENTICATION ROUTES
+    // -------------------------------------------------------------
+    '/api/v1/auth/login': {
+      post: {
+        tags: ['Auth'],
+        summary: 'Admin login',
+        description: 'Authenticates an admin or superadmin using credentials and returns a JWT token.',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['username', 'password'],
+                properties: {
+                  username: { type: 'string', example: 'superadmin@nasrplus.ir' },
+                  password: { type: 'string', example: 'superadmin@12345678' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: 'Login successful' },
+          401: { description: 'Invalid username or password' },
+        },
+      },
+    },
+    '/api/v1/auth/me': {
+      get: {
+        tags: ['Auth'],
+        summary: 'Current admin profile',
+        description: 'Returns profile details and permissions for the authenticated admin.',
+        security: [{ BearerAuth: [] }],
+        responses: {
+          200: { description: 'Profile retrieved' },
+          401: { description: 'Authentication required' },
+        },
+      },
+    },
+
+    // -------------------------------------------------------------
+    // ADMIN MANAGEMENT ROUTES (SUPERADMIN ONLY)
+    // -------------------------------------------------------------
+    '/api/v1/admins': {
+      get: {
+        tags: ['Admins'],
+        summary: 'List admin accounts',
+        description: 'Requires Superadmin privileges. Returns all admin accounts.',
+        security: [{ BearerAuth: [] }],
+        responses: {
+          200: { description: 'Admins retrieved successfully' },
+          403: { description: 'Superadmin privileges required' },
+        },
+      },
+      post: {
+        tags: ['Admins'],
+        summary: 'Create admin account',
+        description: 'Requires Superadmin privileges. Type SUPERADMIN cannot be created more than once.',
+        security: [{ BearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['username', 'password'],
+                properties: {
+                  username: { type: 'string', example: 'admin@nasrplus.ir' },
+                  password: { type: 'string', example: 'AdminPass@123' },
+                  type: { type: 'string', enum: ['ADMIN', 'SUPERADMIN'], default: 'ADMIN' },
+                  fullName: { type: 'string', example: 'Admin User' },
+                  isActive: { type: 'boolean', default: true },
+                  permissions: { type: 'array', items: { type: 'string' } },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          201: { description: 'Admin created successfully' },
+          400: { description: 'Validation error or SUPERADMIN duplicate attempt' },
+          409: { description: 'Username already exists' },
+        },
+      },
+    },
+    '/api/v1/admins/permissions': {
+      get: {
+        tags: ['Admins'],
+        summary: 'List system permissions',
+        description: 'Returns all permission keys available in the Permissions table.',
+        security: [{ BearerAuth: [] }],
+        responses: {
+          200: { description: 'Permissions retrieved' },
+        },
+      },
+      post: {
+        tags: ['Admins'],
+        summary: 'Create permission',
+        security: [{ BearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['name', 'key'],
+                properties: {
+                  name: { type: 'string', example: 'ویرایش اعضا' },
+                  key: { type: 'string', example: 'members:update' },
+                  module: { type: 'string', example: 'members' },
+                  description: { type: 'string', example: 'اجازه ویرایش اعضا' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          201: { description: 'Permission created' },
+        },
+      },
+    },
+
     // -------------------------------------------------------------
     // SYSTEM ROUTES
     // -------------------------------------------------------------
@@ -747,6 +873,14 @@ export const swaggerDocument = {
     },
   },
   components: {
+    securitySchemes: {
+      BearerAuth: {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        description: 'Provide JWT token in format: Bearer <token>',
+      },
+    },
     schemas: {
       Member: {
         type: 'object',
@@ -818,9 +952,27 @@ export const swaggerDocument = {
         properties: {
           _id: { type: 'string' },
           membershipId: { type: 'string', description: 'Foreign reference to Member ID' },
-          addressType: { type: 'string', enum: ['WORK', 'HOME', 'CENTRAL_OFFICE', 'BRANCH', 'OTHER'], example: 'WORK' },
-          province: { type: 'string', example: 'Tehran' },
-          city: { type: 'string', example: 'Tehran' },
+          addressType: {
+            oneOf: [
+              { type: 'string', description: 'Reference ID to AddressType' },
+              { $ref: '#/components/schemas/AddressType' },
+            ],
+            example: '60d5ec49f1b2c8b1f8c8e1a1',
+          },
+          province: {
+            oneOf: [
+              { type: 'string', description: 'Reference ID to Province' },
+              { $ref: '#/components/schemas/Province' },
+            ],
+            example: '60d5ec49f1b2c8b1f8c8e1a2',
+          },
+          city: {
+            oneOf: [
+              { type: 'string', description: 'Reference ID to City' },
+              { $ref: '#/components/schemas/City' },
+            ],
+            example: '60d5ec49f1b2c8b1f8c8e1a3',
+          },
           postalCode: { type: 'string', example: '1417755331' },
           address: { type: 'string', example: 'Motahari St, No 12, Unit 4' },
           isPrimary: { type: 'boolean', example: true },
@@ -828,17 +980,44 @@ export const swaggerDocument = {
       },
       CreateAddressInput: {
         type: 'object',
-        required: ['province', 'city', 'address'],
+        required: ['addressType', 'province', 'city', 'address'],
         properties: {
-          addressType: { type: 'string', enum: ['WORK', 'HOME', 'CENTRAL_OFFICE', 'BRANCH', 'OTHER'], default: 'WORK' },
-          province: { type: 'string', example: 'Tehran' },
-          city: { type: 'string', example: 'Tehran' },
+          addressType: { type: 'string', description: 'Reference ID of AddressType', example: '60d5ec49f1b2c8b1f8c8e1a1' },
+          province: { type: 'string', description: 'Reference ID of Province', example: '60d5ec49f1b2c8b1f8c8e1a2' },
+          city: { type: 'string', description: 'Reference ID of City', example: '60d5ec49f1b2c8b1f8c8e1a3' },
           postalCode: { type: 'string', example: '1417755331' },
           address: { type: 'string', example: 'Motahari St, No 12, Unit 4' },
           plaque: { type: 'string', example: '12' },
-          floor: { type: 'string', example: '2' },
-          unit: { type: 'string', example: '4' },
           isPrimary: { type: 'boolean', default: false },
+        },
+      },
+      AddressType: {
+        type: 'object',
+        properties: {
+          _id: { type: 'string' },
+          title: { type: 'string', example: 'محل کار' },
+          code: { type: 'string', example: 'WORK' },
+          description: { type: 'string', example: 'نشانی محل کار یا شرکت' },
+          isActive: { type: 'boolean', example: true },
+        },
+      },
+      Province: {
+        type: 'object',
+        properties: {
+          _id: { type: 'string' },
+          title: { type: 'string', example: 'تهران' },
+          code: { type: 'string', example: 'TEHRAN' },
+          isActive: { type: 'boolean', example: true },
+        },
+      },
+      City: {
+        type: 'object',
+        properties: {
+          _id: { type: 'string' },
+          title: { type: 'string', example: 'تهران' },
+          provinceId: { type: 'string', description: 'Reference ID to Province' },
+          code: { type: 'string', example: 'TEHRAN' },
+          isActive: { type: 'boolean', example: true },
         },
       },
       MemberTelephone: {

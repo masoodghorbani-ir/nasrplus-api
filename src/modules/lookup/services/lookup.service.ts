@@ -7,6 +7,9 @@ import {
   AcademicField,
   DegreeLevel,
   AcademicQualification,
+  AddressType,
+  Province,
+  City,
 } from '../models';
 import {
   IMembershipType,
@@ -16,6 +19,9 @@ import {
   IAcademicField,
   IDegreeLevel,
   IAcademicQualification,
+  IAddressType,
+  IProvince,
+  ICity,
 } from '../interfaces';
 import { ApiError } from '../../../common/utils/api-error';
 
@@ -197,5 +203,66 @@ export class LookupService {
   }
   async deleteAcademicQualification(id: string): Promise<IAcademicQualification> {
     return this.deleteFromModel(AcademicQualification, id, 'Academic qualification');
+  }
+
+  // --- Address Types ---
+  async getAddressTypes(): Promise<IAddressType[]> {
+    return this.getAllFromModel(AddressType);
+  }
+  async getAddressTypeById(id: string): Promise<IAddressType> {
+    return this.getByIdFromModel(AddressType, id, 'Address type');
+  }
+  async createAddressType(data: Partial<IAddressType>): Promise<IAddressType> {
+    return this.createInModel(AddressType, data);
+  }
+  async updateAddressType(id: string, data: Partial<IAddressType>): Promise<IAddressType> {
+    return this.updateInModel(AddressType, id, data, 'Address type');
+  }
+  async deleteAddressType(id: string): Promise<IAddressType> {
+    return this.deleteFromModel(AddressType, id, 'Address type');
+  }
+
+  // --- Provinces ---
+  async getProvinces(): Promise<IProvince[]> {
+    return this.getAllFromModel(Province);
+  }
+  async getProvinceById(id: string): Promise<IProvince> {
+    return this.getByIdFromModel(Province, id, 'Province');
+  }
+  async createProvince(data: Partial<IProvince>): Promise<IProvince> {
+    return this.createInModel(Province, data);
+  }
+  async updateProvince(id: string, data: Partial<IProvince>): Promise<IProvince> {
+    return this.updateInModel(Province, id, data, 'Province');
+  }
+  async deleteProvince(id: string): Promise<IProvince> {
+    return this.deleteFromModel(Province, id, 'Province');
+  }
+
+  // --- Cities ---
+  async getCities(provinceId?: string): Promise<ICity[]> {
+    const filter = provinceId ? { provinceId } : {};
+    return await City.find(filter).populate('provinceId').sort({ title: 1 });
+  }
+  async getCityById(id: string): Promise<ICity> {
+    const item = await City.findById(id).populate('provinceId');
+    if (!item) {
+      throw ApiError.notFound(`City with ID '${id}' was not found`);
+    }
+    return item;
+  }
+  async createCity(data: Partial<ICity>): Promise<ICity> {
+    const created = await City.create(data);
+    return await created.populate('provinceId');
+  }
+  async updateCity(id: string, data: Partial<ICity>): Promise<ICity> {
+    const updated = await City.findByIdAndUpdate(id, data, { new: true, runValidators: true }).populate('provinceId');
+    if (!updated) {
+      throw ApiError.notFound(`City with ID '${id}' was not found`);
+    }
+    return updated;
+  }
+  async deleteCity(id: string): Promise<ICity> {
+    return this.deleteFromModel(City, id, 'City');
   }
 }

@@ -10,3 +10,6 @@ export * from '../modules/company/models';
 
 // Core Member and Dependent Models (Member, MemberAddress, MemberTelephone)
 export * from '../modules/members/models';
+
+// Administrative and Security Models (Admin, Permission)
+export * from '../modules/admin/models';

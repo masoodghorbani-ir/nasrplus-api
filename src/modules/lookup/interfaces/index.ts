@@ -5,3 +5,6 @@ export * from './nature-of-membership.interface';
 export * from './academic-field.interface';
 export * from './degree-level.interface';
 export * from './academic-qualification.interface';
+export * from './address-type.interface';
+export * from './province.interface';
+export * from './city.interface';

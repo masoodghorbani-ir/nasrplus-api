@@ -5,6 +5,9 @@ import {
   TableSeedResult,
   SeedExecutionSummary,
 } from './types';
+import { Admin } from '../../modules/admin/models/admin.model';
+import { Permission } from '../../modules/admin/models/permission.model';
+import { AdminType } from '../../modules/admin/interfaces/admin.interface';
 
 /** Strip internal seed metadata from document data */
 const cleanItemData = (item: any): Record<string, any> => {
@@ -23,11 +26,16 @@ const seedSingleTable = async (
     if (!silent) console.log(msg);
   };
 
+  // Resolve dynamic references if resolver hook is present
+  const resolvedData = tableConfig.resolveData
+    ? await tableConfig.resolveData(data)
+    : data;
+
   const existingCount = await model.countDocuments();
 
   // Rule 1: If collection is completely empty, insert all seed items
   if (existingCount === 0) {
-    const cleanedData = data.map(cleanItemData);
+    const cleanedData = resolvedData.map(cleanItemData);
     await model.insertMany(cleanedData);
 
     const message = `Collection ${tableName} was empty. Inserted ${cleanedData.length} records.`;
@@ -35,7 +43,7 @@ const seedSingleTable = async (
 
     return {
       tableName,
-      totalInConfig: data.length,
+      totalInConfig: resolvedData.length,
       existingCount: 0,
       insertedCount: cleanedData.length,
       skipped: false,
@@ -53,8 +61,8 @@ const seedSingleTable = async (
 
   // Check items flagged individually with forceInsertBySeed: true
   const candidateItems = isForced
-    ? data
-    : data.filter((item: any) => item.forceInsertBySeed === true);
+    ? resolvedData
+    : resolvedData.filter((item: any) => item.forceInsertBySeed === true);
 
   if (candidateItems.length === 0) {
     const message = `Collection ${tableName} is not empty (${existingCount} items). Skipped (forceInsertBySeed: false).`;
@@ -62,7 +70,7 @@ const seedSingleTable = async (
 
     return {
       tableName,
-      totalInConfig: data.length,
+      totalInConfig: resolvedData.length,
       existingCount,
       insertedCount: 0,
       skipped: true,
@@ -71,21 +79,29 @@ const seedSingleTable = async (
     };
   }
 
-  // Filter out existing documents by uniqueKey
-  const candidateKeys = candidateItems
-    .map((item: any) => item[uniqueKey])
-    .filter((val: any) => val !== undefined && val !== null);
+  // Filter out existing documents
+  const getItemKey = tableConfig.getItemKey || ((item: any) => String(item[uniqueKey]));
+  let existingSet: Set<string>;
 
-  const existingMatches = await model
-    .find({ [uniqueKey]: { $in: candidateKeys } }, { [uniqueKey]: 1 })
-    .lean();
+  if (tableConfig.getItemKey) {
+    const allExisting = await model.find({}).lean();
+    existingSet = new Set(allExisting.map(tableConfig.getItemKey));
+  } else {
+    const candidateKeys = candidateItems
+      .map((item: any) => item[uniqueKey])
+      .filter((val: any) => val !== undefined && val !== null);
 
-  const existingSet = new Set(
-    existingMatches.map((doc: any) => String(doc[uniqueKey]))
-  );
+    const existingMatches = await model
+      .find({ [uniqueKey]: { $in: candidateKeys } }, { [uniqueKey]: 1 })
+      .lean();
+
+    existingSet = new Set(
+      existingMatches.map((doc: any) => String(doc[uniqueKey]))
+    );
+  }
 
   const itemsToInsert = candidateItems
-    .filter((item: any) => !existingSet.has(String(item[uniqueKey])))
+    .filter((item: any) => !existingSet.has(getItemKey(item)))
     .map(cleanItemData);
 
   if (itemsToInsert.length === 0) {
@@ -94,7 +110,7 @@ const seedSingleTable = async (
 
     return {
       tableName,
-      totalInConfig: data.length,
+      totalInConfig: resolvedData.length,
       existingCount,
       insertedCount: 0,
       skipped: false,
@@ -110,7 +126,7 @@ const seedSingleTable = async (
 
   return {
     tableName,
-    totalInConfig: data.length,
+    totalInConfig: resolvedData.length,
     existingCount,
     insertedCount: itemsToInsert.length,
     skipped: false,
@@ -143,6 +159,17 @@ export const seedDatabase = async (
         silent
       );
       results.push(result);
+    }
+
+    // Link all permissions to Superadmin if unassigned
+    const superadmin = await Admin.findOne({ type: AdminType.SUPERADMIN });
+    if (superadmin && (!superadmin.permissions || superadmin.permissions.length === 0)) {
+      const allPerms = await Permission.find({}, { _id: 1 });
+      if (allPerms.length > 0) {
+        superadmin.permissions = allPerms.map((p) => p._id);
+        await superadmin.save();
+        log('  [Admin] 🔑 Associated all system permissions to Superadmin.');
+      }
     }
 
     log('🌱 ========================================================');

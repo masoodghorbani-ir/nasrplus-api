@@ -10,6 +10,8 @@ import { errorHandler } from './common/middlewares/error.middleware';
 import { memberRoutes } from './modules/members/routes/member.routes';
 import { lookupRoutes } from './modules/lookup/routes/lookup.routes';
 import { companyRoutes } from './modules/company/routes/company.routes';
+import { authRoutes } from './modules/admin/routes/auth.routes';
+import { adminRoutes } from './modules/admin/routes/admin.routes';
 
 const app: Application = express();
 
@@ -43,6 +45,8 @@ app.get('/api/v1/health', (_req, res) => {
 });
 
 // Resource module routes
+app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/admins', adminRoutes);
 app.use('/api/v1/members', memberRoutes);
 app.use('/api/v1/lookups', lookupRoutes);
 app.use('/api/v1/companies', companyRoutes);

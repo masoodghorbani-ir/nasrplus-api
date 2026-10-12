@@ -351,4 +351,152 @@ export class LookupController {
       next(error);
     }
   };
+
+  // --- Address Types ---
+  getAddressTypes = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const items = await this.lookupService.getAddressTypes();
+      res.json(ApiResponse.success(items, 'Address types retrieved successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  getAddressTypeById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const id = req.params.id as string;
+      const item = await this.lookupService.getAddressTypeById(id);
+      res.json(ApiResponse.success(item, 'Address type retrieved successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  createAddressType = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const item = await this.lookupService.createAddressType(req.body);
+      res.status(201).json(ApiResponse.created(item, 'Address type created successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  updateAddressType = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const id = req.params.id as string;
+      const item = await this.lookupService.updateAddressType(id, req.body);
+      res.json(ApiResponse.success(item, 'Address type updated successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  deleteAddressType = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const id = req.params.id as string;
+      const item = await this.lookupService.deleteAddressType(id);
+      res.json(ApiResponse.success(item, 'Address type deleted successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  // --- Provinces ---
+  getProvinces = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const items = await this.lookupService.getProvinces();
+      res.json(ApiResponse.success(items, 'Provinces retrieved successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  getProvinceById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const id = req.params.id as string;
+      const item = await this.lookupService.getProvinceById(id);
+      res.json(ApiResponse.success(item, 'Province retrieved successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  createProvince = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const item = await this.lookupService.createProvince(req.body);
+      res.status(201).json(ApiResponse.created(item, 'Province created successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  updateProvince = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const id = req.params.id as string;
+      const item = await this.lookupService.updateProvince(id, req.body);
+      res.json(ApiResponse.success(item, 'Province updated successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  deleteProvince = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const id = req.params.id as string;
+      const item = await this.lookupService.deleteProvince(id);
+      res.json(ApiResponse.success(item, 'Province deleted successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  // --- Cities ---
+  getCities = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const provinceId = req.query.provinceId as string | undefined;
+      const items = await this.lookupService.getCities(provinceId);
+      res.json(ApiResponse.success(items, 'Cities retrieved successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  getCityById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const id = req.params.id as string;
+      const item = await this.lookupService.getCityById(id);
+      res.json(ApiResponse.success(item, 'City retrieved successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  createCity = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const item = await this.lookupService.createCity(req.body);
+      res.status(201).json(ApiResponse.created(item, 'City created successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  updateCity = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const id = req.params.id as string;
+      const item = await this.lookupService.updateCity(id, req.body);
+      res.json(ApiResponse.success(item, 'City updated successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  deleteCity = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const id = req.params.id as string;
+      const item = await this.lookupService.deleteCity(id);
+      res.json(ApiResponse.success(item, 'City deleted successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
 }

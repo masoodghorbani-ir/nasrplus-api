@@ -8,7 +8,6 @@ import { ICompanyInformation } from '../../company/interfaces/company-informatio
 import { IMemberAddress } from './member-address.interface';
 import { IMemberTelephone } from './member-telephone.interface';
 
-export type MemberType = 'INDIVIDUAL' | 'LEGAL' | 'STORE'; // Individual, Legal Entity, Store
 export type MemberStatus = 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'EXPIRED' | 'REJECTED';
 export type Gender = 'MALE' | 'FEMALE' | 'OTHER';
 
@@ -23,7 +22,6 @@ export interface IMember extends Document {
 
   // --- Guild Identity and Profile Fields ---
   memberCode: string;               // Unique Guild Membership Number
-  memberType: MemberType;           // Entity type (Individual / Legal Entity / Store)
   nationalCode?: string;            // 10-digit National ID (for individuals)
   firstName?: string;               // First name
   lastName?: string;                // Last name

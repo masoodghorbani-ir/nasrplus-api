@@ -16,7 +16,6 @@ export class MemberController {
       const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 20;
       const search = (req.query.search as string) || undefined;
       const status = (req.query.status as string) || undefined;
-      const memberType = (req.query.memberType as string) || undefined;
       const membershipTypeId = (req.query.membershipTypeId as string) || undefined;
       const specializationId = (req.query.specializationId as string) || undefined;
       const rankId = (req.query.rankId as string) || undefined;
@@ -26,7 +25,6 @@ export class MemberController {
         limit,
         search,
         status,
-        memberType,
         membershipTypeId,
         specializationId,
         rankId,

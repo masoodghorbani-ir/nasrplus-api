@@ -10,7 +10,6 @@ export interface MemberFilterOptions {
   limit?: number;
   search?: string;
   status?: string;
-  memberType?: string;
   membershipTypeId?: string;
   specializationId?: string;
   rankId?: string;
@@ -41,9 +40,6 @@ export class MemberService {
 
     if (options.status) {
       filter.status = options.status;
-    }
-    if (options.memberType) {
-      filter.memberType = options.memberType;
     }
     if (options.membershipTypeId) {
       filter.membershipTypeId = new Types.ObjectId(options.membershipTypeId);

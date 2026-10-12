@@ -194,13 +194,12 @@ export const swaggerDocument = {
       get: {
         tags: ['Members'],
         summary: 'Get paginated list of members with filters',
-        description: 'Retrieves members with optional keyword search and filtering by status, type, specialization, or rank.',
+        description: 'Retrieves members with optional keyword search and filtering by status, membership type, specialization, or rank.',
         parameters: [
           { name: 'page', in: 'query', schema: { type: 'integer', default: 1 }, description: 'Page number' },
           { name: 'limit', in: 'query', schema: { type: 'integer', default: 20 }, description: 'Items per page' },
           { name: 'search', in: 'query', schema: { type: 'string' }, description: 'Search keyword (code, national ID, name, email)' },
           { name: 'status', in: 'query', schema: { type: 'string', enum: ['PENDING', 'ACTIVE', 'SUSPENDED', 'EXPIRED', 'REJECTED'] } },
-          { name: 'memberType', in: 'query', schema: { type: 'string', enum: ['INDIVIDUAL', 'LEGAL', 'STORE'] } },
           { name: 'membershipTypeId', in: 'query', schema: { type: 'string' }, description: 'Filter by MembershipType ID' },
           { name: 'specializationId', in: 'query', schema: { type: 'string' }, description: 'Filter by Specialization ID' },
           { name: 'rankId', in: 'query', schema: { type: 'string' }, description: 'Filter by Rank ID' },
@@ -889,7 +888,6 @@ export const swaggerDocument = {
         properties: {
           _id: { type: 'string', example: '67093bc2f9821a0012345678' },
           memberCode: { type: 'string', description: 'Unique Guild Membership Code', example: '21010045' },
-          memberType: { type: 'string', enum: ['INDIVIDUAL', 'LEGAL', 'STORE'], example: 'INDIVIDUAL' },
           nationalCode: { type: 'string', example: '0012345678' },
           firstName: { type: 'string', example: 'Masoud' },
           lastName: { type: 'string', example: 'Mohammadi' },
@@ -916,7 +914,6 @@ export const swaggerDocument = {
         required: ['memberCode', 'membershipTypeId', 'specializationId', 'natureOfMembership'],
         properties: {
           memberCode: { type: 'string', example: '21010045' },
-          memberType: { type: 'string', enum: ['INDIVIDUAL', 'LEGAL', 'STORE'], default: 'INDIVIDUAL' },
           nationalCode: { type: 'string', example: '0012345678' },
           firstName: { type: 'string', example: 'Masoud' },
           lastName: { type: 'string', example: 'Mohammadi' },
@@ -934,7 +931,6 @@ export const swaggerDocument = {
       UpdateMemberInput: {
         type: 'object',
         properties: {
-          memberType: { type: 'string', enum: ['INDIVIDUAL', 'LEGAL', 'STORE'] },
           firstName: { type: 'string', example: 'Masoud' },
           lastName: { type: 'string', example: 'Mohammadi' },
           fatherName: { type: 'string', example: 'Ali' },

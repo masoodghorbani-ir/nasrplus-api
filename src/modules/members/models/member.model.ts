@@ -53,16 +53,6 @@ const memberSchema = new Schema<IMember>(
       trim: true,
       index: true,
     },
-    memberType: {
-      type: String,
-      enum: {
-        values: ['INDIVIDUAL', 'LEGAL', 'STORE'],
-        message: 'Member type must be either INDIVIDUAL, LEGAL, or STORE',
-      },
-      default: 'INDIVIDUAL',
-      required: true,
-      index: true,
-    },
     nationalCode: {
       type: String,
       trim: true,

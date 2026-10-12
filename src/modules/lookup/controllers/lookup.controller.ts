@@ -254,6 +254,55 @@ export class LookupController {
     }
   };
 
+  // --- Degree Levels ---
+  getDegreeLevels = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const items = await this.lookupService.getDegreeLevels();
+      res.json(ApiResponse.success(items, 'Degree levels retrieved successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  getDegreeLevelById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const id = req.params.id as string;
+      const item = await this.lookupService.getDegreeLevelById(id);
+      res.json(ApiResponse.success(item, 'Degree level retrieved successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  createDegreeLevel = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const item = await this.lookupService.createDegreeLevel(req.body);
+      res.status(201).json(ApiResponse.created(item, 'Degree level created successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  updateDegreeLevel = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const id = req.params.id as string;
+      const item = await this.lookupService.updateDegreeLevel(id, req.body);
+      res.json(ApiResponse.success(item, 'Degree level updated successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  deleteDegreeLevel = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const id = req.params.id as string;
+      const item = await this.lookupService.deleteDegreeLevel(id);
+      res.json(ApiResponse.success(item, 'Degree level deleted successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
   // --- Academic Qualifications ---
   getAcademicQualifications = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {

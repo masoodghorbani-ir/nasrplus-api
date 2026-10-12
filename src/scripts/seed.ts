@@ -5,6 +5,7 @@ import {
   Rank,
   NatureOfMembership,
   AcademicField,
+  DegreeLevel,
   AcademicQualification,
 } from '../modules/lookup/models';
 import { CompanyInformation } from '../modules/company/models';
@@ -22,6 +23,7 @@ const seedDatabase = async () => {
       Rank.deleteMany({}),
       NatureOfMembership.deleteMany({}),
       AcademicField.deleteMany({}),
+      DegreeLevel.deleteMany({}),
       AcademicQualification.deleteMany({}),
       CompanyInformation.deleteMany({}),
       Member.deleteMany({}),
@@ -70,25 +72,35 @@ const seedDatabase = async () => {
       { title: 'Artificial Intelligence', code: 'AI' },
     ]);
 
-    // 6. Academic Qualifications
+    // 6. Degree Levels
+    const degreeLevels = await DegreeLevel.create([
+      { title: 'دیپلم', code: 'DIPLOMA', level: 1, description: 'High School Diploma' },
+      { title: 'کاردانی (فوق دیپلم)', code: 'ASSOCIATE', level: 2, description: 'Associate Degree' },
+      { title: 'کارشناسی (لیسانس)', code: 'BACHELOR', level: 3, description: 'Bachelor Degree' },
+      { title: 'کارشناسی ارشد (فوق لیسانس)', code: 'MASTER', level: 4, description: 'Master Degree' },
+      { title: 'دکتری', code: 'DOCTORATE', level: 5, description: 'Doctorate / PhD Degree' },
+      { title: 'سایر', code: 'OTHER', level: 6, description: 'Other Qualifications' },
+    ]);
+
+    // 7. Academic Qualifications
     const qualifications = await AcademicQualification.create([
       {
         title: 'Master of Science in Software Engineering',
         academicField: academicFields[0]._id,
-        degreeLevel: 'MASTER',
+        degreeLevel: degreeLevels[3]._id,
         institution: 'University of Tehran',
         graduationYear: 2020,
       },
       {
         title: 'Bachelor of Science in Information Technology',
         academicField: academicFields[1]._id,
-        degreeLevel: 'BACHELOR',
+        degreeLevel: degreeLevels[2]._id,
         institution: 'Sharif University of Technology',
         graduationYear: 2018,
       },
     ]);
 
-    // 7. Sample Company Information
+    // 8. Sample Company Information
     const sampleCompany = await CompanyInformation.create({
       title: 'Nasr Data Solutions Co.',
       companyType: 'KNOWLEDGE_BASED',
@@ -102,7 +114,7 @@ const seedDatabase = async () => {
       description: 'Enterprise IT solutions and cloud software provider',
     });
 
-    // 8. Sample Member
+    // 9. Sample Member
     const sampleMember = await Member.create({
       memberCode: '21010045',
       memberType: 'INDIVIDUAL',
@@ -123,7 +135,7 @@ const seedDatabase = async () => {
       expiryDate: new Date('2027-01-01'),
     });
 
-    // 9. Sample Address
+    // 10. Sample Address
     await MemberAddress.create({
       membershipId: sampleMember._id,
       addressType: 'WORK',
@@ -134,7 +146,7 @@ const seedDatabase = async () => {
       isPrimary: true,
     });
 
-    // 10. Sample Telephone
+    // 11. Sample Telephone
     await MemberTelephone.create({
       membershipId: sampleMember._id,
       phoneType: 'MOBILE',

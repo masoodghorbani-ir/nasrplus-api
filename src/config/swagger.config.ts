@@ -641,13 +641,67 @@ export const swaggerDocument = {
     },
 
     // -------------------------------------------------------------
+    // LOOKUPS: DEGREE LEVELS
+    // -------------------------------------------------------------
+    '/api/v1/lookups/degree-levels': {
+      get: {
+        tags: ['Lookups - Degree Levels'],
+        summary: 'Get all degree levels',
+        responses: { 200: { description: 'List of degree levels' } },
+      },
+      post: {
+        tags: ['Lookups - Degree Levels'],
+        summary: 'Create degree level',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['title'],
+                properties: {
+                  title: { type: 'string', example: 'کارشناسی' },
+                  code: { type: 'string', example: 'BACHELOR' },
+                  level: { type: 'integer', example: 3 },
+                  description: { type: 'string', example: 'Bachelor Degree' },
+                },
+              },
+            },
+          },
+        },
+        responses: { 201: { description: 'Created' } },
+      },
+    },
+    '/api/v1/lookups/degree-levels/{id}': {
+      get: {
+        tags: ['Lookups - Degree Levels'],
+        summary: 'Get degree level by ID',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: { 200: { description: 'Retrieved' }, 404: { description: 'Not found' } },
+      },
+      put: {
+        tags: ['Lookups - Degree Levels'],
+        summary: 'Update degree level',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object' } } } },
+        responses: { 200: { description: 'Updated' }, 404: { description: 'Not found' } },
+      },
+      delete: {
+        tags: ['Lookups - Degree Levels'],
+        summary: 'Delete degree level',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: { 200: { description: 'Deleted' }, 404: { description: 'Not found' } },
+      },
+    },
+
+    // -------------------------------------------------------------
     // LOOKUPS: ACADEMIC QUALIFICATIONS
     // -------------------------------------------------------------
     '/api/v1/lookups/academic-qualifications': {
       get: {
         tags: ['Lookups - Academic Qualifications'],
         summary: 'Get all academic qualifications',
-        responses: { 200: { description: 'List of academic qualifications with populated academicField' } },
+        responses: { 200: { description: 'List of academic qualifications with populated academicField and degreeLevel' } },
       },
       post: {
         tags: ['Lookups - Academic Qualifications'],
@@ -658,11 +712,11 @@ export const swaggerDocument = {
             'application/json': {
               schema: {
                 type: 'object',
-                required: ['title', 'academicField'],
+                required: ['title', 'academicField', 'degreeLevel'],
                 properties: {
                   title: { type: 'string', example: 'Master of Science in Software Engineering' },
                   academicField: { type: 'string', example: '67093bc2f9821a0012345674' },
-                  degreeLevel: { type: 'string', enum: ['DIPLOMA', 'ASSOCIATE', 'BACHELOR', 'MASTER', 'DOCTORATE', 'OTHER'], example: 'MASTER' },
+                  degreeLevel: { type: 'string', description: 'Reference ID to DegreeLevel', example: '67093bc2f9821a0012345675' },
                   institution: { type: 'string', example: 'University of Tehran' },
                   graduationYear: { type: 'integer', example: 2020 },
                 },

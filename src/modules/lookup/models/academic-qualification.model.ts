@@ -15,12 +15,10 @@ const academicQualificationSchema = new Schema<IAcademicQualification>(
       index: true,
     },
     degreeLevel: {
-      type: String,
-      enum: {
-        values: ['DIPLOMA', 'ASSOCIATE', 'BACHELOR', 'MASTER', 'DOCTORATE', 'OTHER'],
-        message: 'Invalid degree level provided',
-      },
-      default: 'BACHELOR',
+      type: Schema.Types.ObjectId,
+      ref: 'DegreeLevel',
+      required: [true, 'Degree level reference is required'],
+      index: true,
     },
     institution: {
       type: String,
@@ -44,6 +42,7 @@ const academicQualificationSchema = new Schema<IAcademicQualification>(
 );
 
 academicQualificationSchema.index({ academicField: 1, title: 1 });
+academicQualificationSchema.index({ degreeLevel: 1, title: 1 });
 
 export const AcademicQualification = model<IAcademicQualification>(
   'AcademicQualification',

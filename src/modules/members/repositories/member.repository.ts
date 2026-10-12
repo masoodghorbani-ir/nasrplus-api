@@ -20,7 +20,10 @@ export class MemberRepository {
       .populate('natureOfMembership')
       .populate({
         path: 'latestAcademicQualifications',
-        populate: { path: 'academicField' },
+        populate: [
+          { path: 'academicField' },
+          { path: 'degreeLevel' },
+        ],
       })
       .populate('companyInformation')
       .populate('addresses')

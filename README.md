@@ -89,7 +89,8 @@ nasrplus/
 | **Specialization** | `Specialization` | رسته / تخصص (نرم‌افزار، سخت‌افزار، شبکه، امنیت و...) |
 | **Rank** | `Rank` | رتبه / گرید نظام صنفی (رتبه ۱ تا ۷، پایه ۱ تا ۳) |
 | **Academic Field** | `AcademicField` | رشته تحصیلی دانشگاهی (مهندسی نرم‌افزار، هوش مصنوعی و...) |
-| **Academic qualifications** | `AcademicQualification` | مدارک تحصیلی؛ دارای ارجاع به `AcademicField` |
+| **Degree Level** | `DegreeLevel` | مقطع تحصیلی (دیپلم، کاردانی، کارشناسی، ارشد، دکتری) |
+| **Academic qualifications** | `AcademicQualification` | مدارک تحصیلی؛ دارای ارجاع به `AcademicField` و `DegreeLevel` |
 | **Nature Of Membership** | `NatureOfMembership` | ماهیت عضویت (پیوسته، وابسته، افتخاری، دائم، موقت) |
 | **Company Information** | `CompanyInformation` | اطلاعات ثبتی، شناسه ملی، نام شرکت و مشخصات مدیرعامل |
 | **Members** | `Member` | جدول مرکزی؛ ارجاع به ۶ جدول فوق به‌همراه فیلدهای هویتی و پرسنلی صنف |

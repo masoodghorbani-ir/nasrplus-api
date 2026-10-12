@@ -5,6 +5,7 @@ import {
   Rank,
   NatureOfMembership,
   AcademicField,
+  DegreeLevel,
   AcademicQualification,
 } from '../models';
 import {
@@ -13,6 +14,7 @@ import {
   IRank,
   INatureOfMembership,
   IAcademicField,
+  IDegreeLevel,
   IAcademicQualification,
 } from '../interfaces';
 import { ApiError } from '../../../common/utils/api-error';
@@ -144,14 +146,34 @@ export class LookupService {
     return this.deleteFromModel(AcademicField, id, 'Academic field');
   }
 
+  // --- Degree Levels ---
+  async getDegreeLevels(): Promise<IDegreeLevel[]> {
+    return await DegreeLevel.find().sort({ level: 1, title: 1 });
+  }
+  async getDegreeLevelById(id: string): Promise<IDegreeLevel> {
+    return this.getByIdFromModel(DegreeLevel, id, 'Degree level');
+  }
+  async createDegreeLevel(data: Partial<IDegreeLevel>): Promise<IDegreeLevel> {
+    return this.createInModel(DegreeLevel, data);
+  }
+  async updateDegreeLevel(id: string, data: Partial<IDegreeLevel>): Promise<IDegreeLevel> {
+    return this.updateInModel(DegreeLevel, id, data, 'Degree level');
+  }
+  async deleteDegreeLevel(id: string): Promise<IDegreeLevel> {
+    return this.deleteFromModel(DegreeLevel, id, 'Degree level');
+  }
+
   // --- Academic Qualifications ---
   async getAcademicQualifications(): Promise<IAcademicQualification[]> {
     return await AcademicQualification.find()
       .populate('academicField')
+      .populate('degreeLevel')
       .sort({ title: 1 });
   }
   async getAcademicQualificationById(id: string): Promise<IAcademicQualification> {
-    const item = await AcademicQualification.findById(id).populate('academicField');
+    const item = await AcademicQualification.findById(id)
+      .populate('academicField')
+      .populate('degreeLevel');
     if (!item) {
       throw ApiError.notFound(`Academic qualification with ID '${id}' was not found`);
     }
@@ -159,13 +181,15 @@ export class LookupService {
   }
   async createAcademicQualification(data: Partial<IAcademicQualification>): Promise<IAcademicQualification> {
     const created = await AcademicQualification.create(data);
-    return await created.populate('academicField');
+    return (await created.populate('academicField')).populate('degreeLevel');
   }
   async updateAcademicQualification(id: string, data: Partial<IAcademicQualification>): Promise<IAcademicQualification> {
     const updated = await AcademicQualification.findByIdAndUpdate(id, data, {
       new: true,
       runValidators: true,
-    }).populate('academicField');
+    })
+      .populate('academicField')
+      .populate('degreeLevel');
     if (!updated) {
       throw ApiError.notFound(`Academic qualification with ID '${id}' was not found`);
     }

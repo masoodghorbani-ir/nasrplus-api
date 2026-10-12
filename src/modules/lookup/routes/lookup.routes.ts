@@ -39,6 +39,13 @@ router.get('/academic-fields/:id', controller.getAcademicFieldById);
 router.put('/academic-fields/:id', controller.updateAcademicField);
 router.delete('/academic-fields/:id', controller.deleteAcademicField);
 
+// --- Degree Levels ---
+router.get('/degree-levels', controller.getDegreeLevels);
+router.post('/degree-levels', controller.createDegreeLevel);
+router.get('/degree-levels/:id', controller.getDegreeLevelById);
+router.put('/degree-levels/:id', controller.updateDegreeLevel);
+router.delete('/degree-levels/:id', controller.deleteDegreeLevel);
+
 // --- Academic Qualifications ---
 router.get('/academic-qualifications', controller.getAcademicQualifications);
 router.post('/academic-qualifications', controller.createAcademicQualification);

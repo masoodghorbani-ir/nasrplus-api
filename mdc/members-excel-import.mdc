@@ -1,0 +1,245 @@
+---
+description: Technical specification and guidelines for implementing the Members Excel Import wizard in the Admin Panel
+globs: src/**/*.{ts,tsx,vue}
+---
+
+# Members Excel Import UI Specification
+
+Guidelines and technical contract for implementing the multi-step Excel import wizard for guild members in the Admin Panel.
+
+---
+
+## 1. Overview & Architecture
+
+The Excel Member Import feature is designed as a **3-Step Wizard / Stepper**:
+
+1. **Step 1: Upload & Analysis (Preview)**
+   - Upload Excel file (`.xlsx`, `.xls`, `.csv`).
+   - Call preview API to detect sheet names, row count, available columns, and sample rows.
+   - Pre-fill column mappings using the server's `suggestedMapping`.
+
+2. **Step 2: Configuration & Mapping**
+   - **Fixed Inputs (File-wide defaults):**
+     - Nature of Membership (`natureOfMembership`) [Required]: Dropdown fetched from `/api/v1/lookups/nature-of-memberships`.
+     - Membership Type (`membershipTypeId`) [Required]: Dropdown fetched from `/api/v1/lookups/membership-types`.
+     - Specialization (`specializationId`) [Optional]: Dropdown fetched from `/api/v1/lookups/specializations`.
+     - Status (`status`) [Optional]: `ACTIVE` (default) or `PENDING`.
+   - **Column Mapping:**
+     - Map Excel column letters (`A`, `B`, `C`...) to Member fields.
+     - Target fields: `memberCode` (required), `firstName`, `lastName`, `nationalCode`, `membershipDate`, `expiryDate`, `mobilePhone`, `email`.
+   - **Start Row:** Number input (defaults to `2`, skipping the header row).
+   - **Sample Preview Table:** Display the first 3–5 rows of data for user verification.
+
+3. **Step 3: Execution & Results Report**
+   - Submit configuration and execute bulk import.
+   - Display summary cards: Total rows, Successful count, Skipped count.
+   - Display error table for failed/skipped rows with exact reason (e.g., duplicate national code, duplicate member code).
+
+---
+
+## 2. API Endpoints Contract
+
+### 2.1 Lookup Endpoints (for Step 2 Dropdowns)
+- **Nature of Membership:** `GET /api/v1/lookups/nature-of-memberships`
+  - Items shape: `{ _id: string, title: string, key: 'REAL' | 'LEGAL' }`
+- **Membership Types:** `GET /api/v1/lookups/membership-types`
+  - Items shape: `{ _id: string, title: string, code: string }`
+- **Specializations (Optional):** `GET /api/v1/lookups/specializations`
+  - Items shape: `{ _id: string, title: string, code: string }`
+
+### 2.2 Upload & Preview Endpoint
+- **URL:** `POST /api/v1/members/import/preview`
+- **Content-Type:** `multipart/form-data`
+- **Payload:** `file: File` (Max 15MB)
+- **Response Structure (`200 OK`):**
+  ```json
+  {
+    "success": true,
+    "message": "Excel file uploaded and analyzed successfully",
+    "data": {
+      "fileId": "string (UUID)",
+      "originalFilename": "string",
+      "sheets": ["string"],
+      "selectedSheet": "string",
+      "totalRows": 150,
+      "columns": [
+        { "key": "A", "index": 0, "headerSample": "کد عضویت" },
+        { "key": "B", "index": 1, "headerSample": "نام" }
+      ],
+      "previewRows": [
+        { "rowNumber": 1, "A": "کد عضویت", "B": "نام" },
+        { "rowNumber": 2, "A": "1001", "B": "علی" }
+      ],
+      "suggestedMapping": {
+        "memberCode": "A",
+        "firstName": "B",
+        "lastName": "C",
+        "nationalCode": "D",
+        "membershipDate": "E",
+        "expiryDate": "F",
+        "mobilePhone": "G",
+        "email": "H"
+      }
+    }
+  }
+  ```
+
+### 2.3 Confirm & Import Endpoint
+- **URL:** `POST /api/v1/members/import/confirm`
+- **Content-Type:** `application/json`
+- **Request Body:**
+  ```json
+  {
+    "fileId": "string (UUID from preview)",
+    "sheetName": "string (optional, defaults to first sheet)",
+    "startRow": 2,
+    "fixedData": {
+      "natureOfMembership": "string (ObjectId, key, or title)",
+      "membershipTypeId": "string (ObjectId, code, or title)",
+      "specializationId": "string (optional ObjectId or code)",
+      "status": "ACTIVE"
+    },
+    "columnMapping": {
+      "memberCode": "A",
+      "firstName": "B",
+      "lastName": "C",
+      "nationalCode": "D",
+      "membershipDate": "E",
+      "expiryDate": "F",
+      "mobilePhone": "G",
+      "email": "H"
+    }
+  }
+  ```
+- **Response Structure (`200 OK`):**
+  ```json
+  {
+    "success": true,
+    "message": "Members import completed successfully",
+    "data": {
+      "summary": {
+        "totalRows": 149,
+        "processedCount": 149,
+        "importedCount": 145,
+        "skippedCount": 4
+      },
+      "failedRows": [
+        {
+          "rowNumber": 12,
+          "memberCode": "1012",
+          "nationalCode": "0012345678",
+          "fullName": "علی محمدی",
+          "reason": "کد ملی '0012345678' قبلاً در سامانه برای عضو دیگری ثبت شده است"
+        }
+      ],
+      "importedMembers": [
+        {
+          "id": "67104ac79f821a0012345678",
+          "memberCode": "1001",
+          "fullName": "علی محمدی"
+        }
+      ]
+    }
+  }
+  ```
+
+---
+
+## 3. TypeScript Interfaces
+
+Place these definitions in `src/types/member-import.types.ts`:
+
+```typescript
+export interface IExcelColumnInfo {
+  key: string;           // e.g. "A", "B", "AA"
+  index: number;         // 0-based index
+  headerSample?: string; // Text from header row
+}
+
+export interface IExcelColumnMapping {
+  memberCode: string;    // Required
+  firstName?: string;
+  lastName?: string;
+  nationalCode?: string;
+  membershipDate?: string;
+  expiryDate?: string;
+  mobilePhone?: string;
+  email?: string;
+}
+
+export interface IFixedImportData {
+  natureOfMembership: string; // Required (ObjectId, key 'REAL'/'LEGAL', or title)
+  membershipTypeId: string;   // Required (ObjectId, code, or title)
+  specializationId?: string;  // Optional
+  status?: 'ACTIVE' | 'PENDING';
+}
+
+export interface IImportPreviewResponse {
+  fileId: string;
+  originalFilename: string;
+  sheets: string[];
+  selectedSheet: string;
+  totalRows: number;
+  columns: IExcelColumnInfo[];
+  previewRows: Array<Record<string, unknown>>;
+  suggestedMapping: IExcelColumnMapping;
+}
+
+export interface IImportConfirmPayload {
+  fileId: string;
+  sheetName?: string;
+  startRow?: number;
+  fixedData: IFixedImportData;
+  columnMapping: IExcelColumnMapping;
+}
+
+export interface IImportRowError {
+  rowNumber: number;
+  memberCode?: string;
+  nationalCode?: string;
+  fullName?: string;
+  reason: string;
+}
+
+export interface IImportExecutionResponse {
+  summary: {
+    totalRows: number;
+    processedCount: number;
+    importedCount: number;
+    skippedCount: number;
+  };
+  failedRows: IImportRowError[];
+  importedMembers: Array<{
+    id: string;
+    memberCode: string;
+    fullName: string;
+  }>;
+}
+```
+
+---
+
+## 4. UI Implementation Rules & Guidelines
+
+1. **Auto-population with `suggestedMapping`:**
+   - When Step 1 completes, initialize the column mapping form using `data.suggestedMapping`.
+   - Allow the admin user to override any mapping through a dropdown containing the detected columns (e.g., `ستون A - کد عضویت`).
+
+2. **Form Validations:**
+   - `file`: Must not be empty. Allowed formats: `.xlsx`, `.xls`, `.csv`.
+   - `fixedData.natureOfMembership`: Required.
+   - `fixedData.membershipTypeId`: Required.
+   - `columnMapping.memberCode`: Required (must be mapped to one column).
+   - `startRow`: Positive integer, minimum 1, defaults to 2.
+
+3. **Dates & Phone Formatting Note:**
+   - The backend natively handles Jalali (Shamsi) dates (e.g. `1402/05/15`, `1402-05-15`, `14020515`), Persian digits, and 10-digit national code padding. No frontend date transformation is needed.
+
+4. **Error Handling & Reporting:**
+   - If `summary.skippedCount > 0`, display the `failedRows` table showing:
+     - شماره سطر (Row Number)
+     - کد عضویت (Member Code)
+     - کد ملی (National Code)
+     - نام و نام خانوادگی (Full Name)
+     - علت عدم ثبت / خطا (Reason)
+   - Provide a button to export or copy failed records for administrative review.

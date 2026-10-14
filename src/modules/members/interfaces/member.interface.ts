@@ -14,7 +14,7 @@ export type Gender = 'MALE' | 'FEMALE' | 'OTHER';
 export interface IMember extends Document {
   // --- ER Diagram Foreign Key References ---
   membershipTypeId: Types.ObjectId | IMembershipType;                     // Membership Type reference
-  specializationId: Types.ObjectId | ISpecialization;                     // Specialization / Guild Branch reference
+  specializationId?: Types.ObjectId | ISpecialization;                    // Specialization / Guild Branch reference
   rankId?: Types.ObjectId | IRank;                                        // Rank / Grade reference
   latestAcademicQualifications?: Types.ObjectId | IAcademicQualification; // Latest academic qualification reference
   natureOfMembership: Types.ObjectId | INatureOfMembership;               // Nature of membership reference

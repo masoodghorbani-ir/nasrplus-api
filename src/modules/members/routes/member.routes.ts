@@ -1,9 +1,25 @@
 import { Router } from 'express';
 import { MemberController } from '../controllers/member.controller';
+import { MemberImportController } from '../controllers/member-import.controller';
 import { accessControl } from '../../../common/middlewares/access-control.middleware';
+import { excelUpload } from '../../../common/middlewares/upload.middleware';
 
 const router = Router();
 const memberController = new MemberController();
+const memberImportController = new MemberImportController();
+
+// --- Excel Import Routes ---
+router.post(
+  '/import/preview',
+  accessControl('private', 'members:create'),
+  excelUpload.single('file'),
+  memberImportController.preview
+);
+router.post(
+  '/import/confirm',
+  accessControl('private', 'members:create'),
+  memberImportController.confirm
+);
 
 // --- Core Member Routes ---
 router.get('/', accessControl('private', 'members:read'), memberController.getMembers);

@@ -190,6 +190,61 @@ export const swaggerDocument = {
     // -------------------------------------------------------------
     // MEMBER ROUTES
     // -------------------------------------------------------------
+    '/api/v1/members/import/preview': {
+      post: {
+        tags: ['Members'],
+        summary: 'Upload and preview Excel file for members import',
+        description: 'Uploads an Excel spreadsheet (.xlsx, .xls, .csv), detects worksheets, columns, sample rows, and generates suggested column mappings.',
+        requestBody: {
+          required: true,
+          content: {
+            'multipart/form-data': {
+              schema: {
+                type: 'object',
+                required: ['file'],
+                properties: {
+                  file: {
+                    type: 'string',
+                    format: 'binary',
+                    description: 'Excel file (.xlsx, .xls) or CSV file',
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: 'File preview generated successfully',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponseImportPreview' } } },
+          },
+          400: { description: 'Invalid file format or corrupt spreadsheet' },
+        },
+      },
+    },
+    '/api/v1/members/import/confirm': {
+      post: {
+        tags: ['Members'],
+        summary: 'Confirm and execute member import from Excel',
+        description: 'Executes the bulk import using specified column mappings and fixed classification values. Skips duplicates and returns detailed execution report.',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ImportConfirmInput' },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: 'Import executed and summary returned',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponseImportExecution' } } },
+          },
+          400: { description: 'Invalid mapping or reference data' },
+          404: { description: 'Temporary file session expired or not found' },
+        },
+      },
+    },
     '/api/v1/members': {
       get: {
         tags: ['Members'],
@@ -911,7 +966,7 @@ export const swaggerDocument = {
       },
       CreateMemberInput: {
         type: 'object',
-        required: ['memberCode', 'membershipTypeId', 'specializationId', 'natureOfMembership'],
+        required: ['memberCode', 'membershipTypeId', 'natureOfMembership'],
         properties: {
           memberCode: { type: 'string', example: '21010045' },
           nationalCode: { type: 'string', example: '0012345678' },
@@ -1084,6 +1139,126 @@ export const swaggerDocument = {
           success: { type: 'boolean', example: true },
           message: { type: 'string', example: 'Member details retrieved successfully' },
           data: { $ref: '#/components/schemas/Member' },
+        },
+      },
+      ApiResponseImportPreview: {
+        type: 'object',
+        properties: {
+          success: { type: 'boolean', example: true },
+          message: { type: 'string', example: 'Excel file uploaded and analyzed successfully' },
+          data: {
+            type: 'object',
+            properties: {
+              fileId: { type: 'string', example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' },
+              originalFilename: { type: 'string', example: 'members-list.xlsx' },
+              sheets: { type: 'array', items: { type: 'string' }, example: ['Sheet1'] },
+              selectedSheet: { type: 'string', example: 'Sheet1' },
+              totalRows: { type: 'integer', example: 120 },
+              columns: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    key: { type: 'string', example: 'A' },
+                    index: { type: 'integer', example: 0 },
+                    headerSample: { type: 'string', example: 'کد عضویت' },
+                  },
+                },
+              },
+              previewRows: { type: 'array', items: { type: 'object' } },
+              suggestedMapping: {
+                type: 'object',
+                properties: {
+                  firstName: { type: 'string', example: 'B' },
+                  lastName: { type: 'string', example: 'C' },
+                  nationalCode: { type: 'string', example: 'D' },
+                  memberCode: { type: 'string', example: 'A' },
+                  membershipDate: { type: 'string', example: 'E' },
+                  expiryDate: { type: 'string', example: 'F' },
+                  mobilePhone: { type: 'string', example: 'G' },
+                  email: { type: 'string', example: 'H' },
+                },
+              },
+            },
+          },
+        },
+      },
+      ImportConfirmInput: {
+        type: 'object',
+        required: ['fileId', 'fixedData', 'columnMapping'],
+        properties: {
+          fileId: { type: 'string', example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' },
+          sheetName: { type: 'string', example: 'Sheet1' },
+          startRow: { type: 'integer', default: 2, example: 2 },
+          fixedData: {
+            type: 'object',
+            required: ['natureOfMembership', 'membershipTypeId'],
+            properties: {
+              natureOfMembership: { type: 'string', description: 'ObjectId, title, or key (REAL / LEGAL)', example: 'REAL' },
+              membershipTypeId: { type: 'string', description: 'ObjectId, code, or title (COMPANY, CONSULTANT, STORE, EXPERT, FREELANCER)', example: 'EXPERT' },
+              specializationId: { type: 'string', description: 'Optional Specialization reference ID or code' },
+              status: { type: 'string', enum: ['PENDING', 'ACTIVE', 'SUSPENDED', 'EXPIRED', 'REJECTED'], default: 'ACTIVE', example: 'ACTIVE' },
+            },
+          },
+          columnMapping: {
+            type: 'object',
+            required: ['memberCode'],
+            properties: {
+              firstName: { type: 'string', example: 'B' },
+              lastName: { type: 'string', example: 'C' },
+              nationalCode: { type: 'string', example: 'D' },
+              memberCode: { type: 'string', example: 'A' },
+              membershipDate: { type: 'string', example: 'E' },
+              expiryDate: { type: 'string', example: 'F' },
+              mobilePhone: { type: 'string', example: 'G' },
+              email: { type: 'string', example: 'H' },
+            },
+          },
+        },
+      },
+      ApiResponseImportExecution: {
+        type: 'object',
+        properties: {
+          success: { type: 'boolean', example: true },
+          message: { type: 'string', example: 'Members import completed successfully' },
+          data: {
+            type: 'object',
+            properties: {
+              summary: {
+                type: 'object',
+                properties: {
+                  totalRows: { type: 'integer', example: 100 },
+                  processedCount: { type: 'integer', example: 100 },
+                  importedCount: { type: 'integer', example: 95 },
+                  skippedCount: { type: 'integer', example: 5 },
+                },
+              },
+              failedRows: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    rowNumber: { type: 'integer', example: 12 },
+                    memberCode: { type: 'string', example: '1012' },
+                    nationalCode: { type: 'string', example: '0012345678' },
+                    fullName: { type: 'string', example: 'Ali Rezaei' },
+                    reason: { type: 'string', example: 'کد ملی تکراری است' },
+                  },
+                },
+              },
+              importedMembers: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'string' },
+                    memberCode: { type: 'string' },
+                    fullName: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
         },
       },
     },

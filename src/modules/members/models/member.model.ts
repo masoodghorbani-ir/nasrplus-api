@@ -15,7 +15,7 @@ const memberSchema = new Schema<IMember>(
     specializationId: {
       type: Schema.Types.ObjectId,
       ref: 'Specialization',
-      required: [true, 'Specialization reference is required'],
+      default: null,
       index: true,
     },
     rankId: {

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { MemberController } from '../controllers/member.controller';
 import { MemberImportController } from '../controllers/member-import.controller';
 import { accessControl } from '../../../common/middlewares/access-control.middleware';
-import { excelUpload } from '../../../common/middlewares/upload.middleware';
+import { excelUpload, memberPhotoUpload } from '../../../common/middlewares/upload.middleware';
 
 const router = Router();
 const memberController = new MemberController();
@@ -32,6 +32,19 @@ router.post('/', accessControl('private', 'members:create'), memberController.cr
 router.get('/:id', accessControl('private', 'members:read'), memberController.getMemberById);
 router.put('/:id', accessControl('private', 'members:update'), memberController.updateMember);
 router.delete('/:id', accessControl('private', 'members:delete'), memberController.deleteMember);
+
+// --- Member Photo Routes ---
+router.post(
+  '/:id/photo',
+  accessControl('private', 'members:update'),
+  memberPhotoUpload.single('photo'),
+  memberController.uploadMemberPhoto
+);
+router.delete(
+  '/:id/photo',
+  accessControl('private', 'members:update'),
+  memberController.deleteMemberPhoto
+);
 
 // --- Member Address Sub-routes ---
 router.get('/:id/addresses', accessControl('private', 'members:read'), memberController.getMemberAddresses);

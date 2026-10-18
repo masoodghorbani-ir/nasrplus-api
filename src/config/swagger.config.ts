@@ -356,6 +356,59 @@ export const swaggerDocument = {
         },
       },
     },
+    '/api/v1/members/{id}/photo': {
+      post: {
+        tags: ['Members'],
+        summary: 'Upload member personal photo',
+        description: 'Uploads or updates the personal profile photo (JPEG, PNG, WebP up to 5MB) for a member.',
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' }, description: 'Member ObjectId' },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'multipart/form-data': {
+              schema: {
+                type: 'object',
+                required: ['photo'],
+                properties: {
+                  photo: {
+                    type: 'string',
+                    format: 'binary',
+                    description: 'Image file (JPEG, PNG, WebP up to 5MB)',
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: 'Member photo uploaded successfully',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponseMemberSingle' } } },
+          },
+          400: { description: 'Invalid image format or missing file' },
+          404: { description: 'Member not found' },
+        },
+      },
+      delete: {
+        tags: ['Members'],
+        summary: 'Remove member personal photo',
+        description: 'Deletes the existing photo file from the server and clears profileImage on the member.',
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' }, description: 'Member ObjectId' },
+        ],
+        responses: {
+          200: {
+            description: 'Member photo removed successfully',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponseMemberSingle' } } },
+          },
+          404: { description: 'Member not found' },
+        },
+      },
+    },
 
     // -------------------------------------------------------------
     // MEMBER ADDRESS SUB-ROUTES
@@ -1102,6 +1155,7 @@ export const swaggerDocument = {
           fatherName: { type: 'string', example: 'Ali' },
           gender: { type: 'string', enum: ['MALE', 'FEMALE', 'OTHER'], example: 'MALE' },
           birthDate: { type: 'string', format: 'date', example: '1990-05-21' },
+          profileImage: { type: 'string', example: '/uploads/members/photos/67093bc2f9821a0012345678-1729241000.jpg' },
           status: { type: 'string', enum: ['PENDING', 'ACTIVE', 'SUSPENDED', 'EXPIRED', 'REJECTED'], example: 'ACTIVE' },
           membershipTypeId: { type: 'string', description: 'Reference ID to MembershipType' },
           specializationId: { type: 'string', description: 'Reference ID to Specialization' },
@@ -1129,6 +1183,7 @@ export const swaggerDocument = {
           fatherName: { type: 'string', example: 'Ali' },
           gender: { type: 'string', enum: ['MALE', 'FEMALE', 'OTHER'], example: 'MALE' },
           birthDate: { type: 'string', format: 'date', example: '1990-05-21' },
+          profileImage: { type: 'string', example: '/uploads/members/photos/sample.jpg' },
           membershipTypeId: { type: 'string', example: '67093bc2f9821a0012345671' },
           specializationId: { type: 'string', example: '67093bc2f9821a0012345672' },
           rankId: { type: 'string', example: '67093bc2f9821a0012345673' },
@@ -1144,6 +1199,7 @@ export const swaggerDocument = {
           lastName: { type: 'string', example: 'Mohammadi' },
           fatherName: { type: 'string', example: 'Ali' },
           gender: { type: 'string', enum: ['MALE', 'FEMALE', 'OTHER'] },
+          profileImage: { type: 'string', example: '/uploads/members/photos/sample.jpg' },
           status: { type: 'string', enum: ['PENDING', 'ACTIVE', 'SUSPENDED', 'EXPIRED', 'REJECTED'] },
           specializationId: { type: 'string' },
           rankId: { type: 'string' },

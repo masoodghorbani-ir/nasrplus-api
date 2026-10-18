@@ -1,0 +1,865 @@
+---
+description: Technical specification and UI implementation guidelines for Member Profile Photo (عکس پرسنلی) upload, cropping, preview, and lifecycle management in the Front-end
+globs: src/**/*.{ts,tsx,vue}
+---
+
+# Member Profile Photo (عکس پرسنلی عضو) UI Specification
+
+Comprehensive technical documentation and front-end integration guide for managing guild member personal photos (عکس پرسنلی), including image selection, client-side validation, interactive cropping, uploading via `multipart/form-data`, fallback avatars, and removal workflow.
+
+---
+
+## 1. Overview & Architecture
+
+In the Computer Trade Guild Management System (NasrPlus), each member profile supports an official personal photograph (`profileImage`). This photo is displayed across multiple UI contexts:
+- **Member Profile Page:** Large 3:4 portrait photo alongside personal and guild details.
+- **Member Directory / Data Table:** Compact circular/rounded avatar in data grids.
+- **Membership Card (کارت عضویت):** High-resolution portrait photo printed or rendered on the digital identity card.
+- **Guild Certificate / Official License (پروانه کسب / گواهی عضویت):** Formal verification portrait.
+
+### 1.1 Complete Photo Lifecycle Flow
+
+```
+   [ User Selects / Drops Image ]
+                 │
+                 ▼
+     ┌───────────────────────┐
+     │ Client-side Validation│ (MIME: jpg/png/webp, Size: <= 5MB)
+     └───────────┬───────────┘
+                 │ (Pass)
+                 ▼
+     ┌───────────────────────┐
+     │ Interactive Cropping  │ (Aspect ratio 3:4 or 1:1, Zoom, Rotate)
+     └───────────┬───────────┘
+                 │ (Confirm Crop -> Blob)
+                 ▼
+     ┌───────────────────────┐
+     │ Upload to Server API  │ POST /api/v1/members/:id/photo
+     └───────────┬───────────┘
+                 │
+        ┌────────┴────────┐
+        ▼                 ▼
+ ┌───────────────┐ ┌───────────────┐
+ │ 200 OK        │ │ Error (400/404│
+ │ Update Avatar │ │ Show Toast    │
+ │ Cache-busting │ └───────────────┘
+ └───────────────┘
+```
+
+### 1.2 Core Capabilities
+1. **Direct Upload:** Upload personal photos for existing members via dedicated sub-resource endpoint.
+2. **Interactive Cropping:** Crop image in front-end before transmitting bytes, ensuring uniform 3:4 or 1:1 portrait proportions.
+3. **Automatic Old File Cleanup:** The backend automatically purges old image files from disk when a new photo is uploaded or removed.
+4. **Fallback Handling:** If a member has no photo or the image fails to load, the UI gracefully renders member initials or a themed silhouette placeholder.
+5. **Photo Deletion:** Safe deletion endpoint to remove the image file and reset the member's `profileImage` attribute.
+
+---
+
+## 2. API Endpoints Contract
+
+Base URL: `http://<SERVER_HOST>:<PORT>` (e.g. `http://localhost:5000` or configured via `VITE_API_URL` / `NEXT_PUBLIC_API_URL`).
+
+Static files root: Uploaded files are served statically from `/uploads/...`.
+
+All write/delete endpoints require:
+```http
+Authorization: Bearer <ADMIN_JWT_TOKEN>
+```
+
+---
+
+### 2.1 Upload Member Photo
+Uploads or updates the personal profile photo for an existing member.
+
+- **URL:** `POST /api/v1/members/:id/photo`
+- **Method:** `POST`
+- **Content-Type:** `multipart/form-data`
+- **Permission Required:** `members:update`
+- **Path Parameters:**
+  - `id` (string, required): MongoDB ObjectId of the member.
+- **Form-Data Fields:**
+  - `photo` (File, required): The image binary (`image/jpeg`, `image/png`, `image/webp`). Maximum size: **5MB**.
+
+#### Request Example (cURL):
+```bash
+curl -X POST http://localhost:5000/api/v1/members/67093bc2f9821a0012345678/photo \
+  -H "Authorization: Bearer <TOKEN>" \
+  -F "photo=@/path/to/personal-photo.jpg"
+```
+
+#### Success Response (`200 OK`):
+```json
+{
+  "success": true,
+  "message": "Member photo uploaded successfully",
+  "data": {
+    "_id": "67093bc2f9821a0012345678",
+    "memberCode": "21010045",
+    "nationalCode": "0012345678",
+    "firstName": "مسعود",
+    "lastName": "محمدی",
+    "profileImage": "/uploads/members/photos/67093bc2f9821a0012345678-1729241000-a1b2c3d4.jpg",
+    "status": "ACTIVE",
+    "fullName": "مسعود محمدی",
+    "updatedAt": "2026-10-18T10:30:00.000Z"
+  }
+}
+```
+
+#### Error Responses:
+- **`400 Bad Request` - No file uploaded:**
+  ```json
+  {
+    "success": false,
+    "message": "Photo file is required"
+  }
+  ```
+- **`400 Bad Request` - Invalid format or exceeds 5MB:**
+  ```json
+  {
+    "success": false,
+    "message": "Invalid image format. Only JPEG, PNG, and WebP images are allowed"
+  }
+  ```
+- **`404 Not Found` - Member does not exist:**
+  ```json
+  {
+    "success": false,
+    "message": "Member with ID '67093bc2f9821a0012345678' was not found"
+  }
+  ```
+
+---
+
+### 2.2 Remove Member Photo
+Permanently removes the member's photo from the server disk and sets `profileImage: ""` on the member record.
+
+- **URL:** `DELETE /api/v1/members/:id/photo`
+- **Method:** `DELETE`
+- **Permission Required:** `members:update`
+- **Path Parameters:**
+  - `id` (string, required): MongoDB ObjectId of the member.
+
+#### Success Response (`200 OK`):
+```json
+{
+  "success": true,
+  "message": "Member photo removed successfully",
+  "data": {
+    "_id": "67093bc2f9821a0012345678",
+    "memberCode": "21010045",
+    "firstName": "مسعود",
+    "lastName": "محمدی",
+    "profileImage": "",
+    "updatedAt": "2026-10-18T10:35:00.000Z"
+  }
+}
+```
+
+---
+
+### 2.3 Accessing the Static Photo URL
+
+The API returns relative URLs in `member.profileImage`, for example:
+`/uploads/members/photos/67093bc2f9821a0012345678-1729241000-a1b2c3d4.jpg`
+
+To display it in the front-end, prepend the API base host:
+```typescript
+export function getPhotoFullUrl(profileImage?: string | null): string | null {
+  if (!profileImage) return null;
+  if (profileImage.startsWith('http://') || profileImage.startsWith('https://')) {
+    return profileImage;
+  }
+  const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+  return `${apiBase.replace(/\/$/, '')}/${profileImage.replace(/^\//, '')}`;
+}
+```
+
+> **Important (Cache-Busting):** When a user uploads a new photo, append a timestamp query parameter (e.g. `?t=${Date.now()}`) to force the browser to discard cached versions of previous avatars.
+
+---
+
+## 3. TypeScript Interfaces & DTOs
+
+Place or export these types in `src/types/member-photo.types.ts`:
+
+```typescript
+// Member profile entity summary with photo
+export interface IMemberSummary {
+  _id: string;
+  memberCode: string;
+  nationalCode?: string;
+  firstName?: string;
+  lastName?: string;
+  fullName?: string;
+  profileImage?: string;
+  status: 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'EXPIRED' | 'REJECTED';
+  gender?: 'MALE' | 'FEMALE' | 'OTHER';
+}
+
+// API standard wrapper
+export interface IApiResponse<T> {
+  success: boolean;
+  message: string;
+  data: T;
+  meta?: Record<string, unknown>;
+}
+
+// State of the photo uploader component
+export interface IPhotoUploaderState {
+  isUploading: boolean;
+  progress: number;
+  previewUrl: string | null;
+  selectedFile: File | null;
+  error: string | null;
+}
+
+// Cropping configuration options
+export interface ICropModalOptions {
+  aspectRatio: number; // e.g. 3 / 4 (Portrait) or 1 (Square)
+  maxWidth?: number;   // e.g. 1200
+  maxHeight?: number;  // e.g. 1600
+  outputFormat?: 'image/jpeg' | 'image/png' | 'image/webp';
+  quality?: number;    // 0.85 to 0.95
+}
+```
+
+---
+
+## 4. UI/UX Design & Component Specifications
+
+### 4.1 Avatar Display Component (`MemberAvatar`)
+
+The Avatar component represents a member visually in headers, tables, cards, and modal dialogs.
+
+```
+       ┌────────────────────────┐
+       │   [ 3x4 Portrait / 1:1]│
+       │                        │
+       │       (Photo /         │
+       │       Initials /       │
+       │      Silhouette)       │
+       │                        │
+       │              ┌───┐     │
+       │              │ ● │◄────┼── Status Indicator (Green/Yellow/Red)
+       └──────────────┴───┘─────┘
+```
+
+#### Visual Rules & Hierarchy:
+1. **Image Available (`profileImage` is non-empty):**
+   - Render `<img>` with `object-fit: cover` and centered alignment.
+   - Use `loading="lazy"` in data tables.
+   - Bind `@error` / `onError` event to automatically fall back to initials if network loading fails.
+2. **No Image (`profileImage` is null or empty):**
+   - **Initials Fallback:** Calculate first letter of `firstName` + first letter of `lastName` (e.g. `مسعود محمدی` -> `م.م` or `Masoud Mohammadi` -> `MM`).
+   - Distinctive pastel background color calculated deterministically from member ID or name hash.
+   - Or display a neutral gender-appropriate SVG silhouette icon.
+3. **Status Badge:**
+   - Small circular badge positioned at bottom-left or bottom-right:
+     - `ACTIVE`: Green (`#10B981`)
+     - `PENDING`: Amber/Yellow (`#F59E0B`)
+     - `SUSPENDED` / `REJECTED`: Red (`#EF4444`)
+     - `EXPIRED`: Slate/Gray (`#6B7280`)
+
+#### Supported Sizes:
+- **`xs`:** 24x24px (Inline table indicators)
+- **`sm`:** 36x36px (List items, dropdown selectors)
+- **`md`:** 48x48px (Table cells, default size)
+- **`lg`:** 80x80px (Card view summary)
+- **`xl`:** 120x160px (Member profile header, 3:4 portrait ratio)
+- **`card`:** 180x240px (Official membership ID card print layout)
+
+---
+
+### 4.2 Photo Upload & Cropping Modal (`MemberPhotoModal`)
+
+A complete, user-friendly photo manager modal containing:
+1. **Drag-and-Drop Area:**
+   - Visual drop target with dashed border and cloud upload icon.
+   - Text in Persian: *"تصویر پرسنلی را اینجا بکشید یا برای انتخاب فایل کلیک کنید"*
+   - Supported note: *"فرمت‌های مجاز: JPG, PNG, WEBP (حداکثر ۵ مگابایت)"*
+2. **Interactive Cropper View:**
+   - When a file is chosen, load it into a client-side cropper canvas (e.g. `cropperjs`, `vue-cropperjs`, or `react-easy-crop`).
+   - Fix aspect ratio to `3 / 4` (standard 3x4 personnel photo) with an option to toggle `1 / 1` (square avatar).
+   - Controls: Zoom in/out slider, 90-degree rotation button, reset button.
+3. **Action Bar:**
+   - **بارگذاری عکس (Save & Upload):** Triggers `POST /api/v1/members/:id/photo` with upload progress indicator.
+   - **حذف عکس فعلی (Delete Photo):** Shown only if the member already has a photo. Asks confirmation before calling `DELETE`.
+   - **انصراف (Cancel):** Closes modal without modifications.
+
+---
+
+## 5. Front-end Code Implementation
+
+### 5.1 API Service Layer (`member-photo.service.ts`)
+
+```typescript
+import axios from 'axios';
+import { IMemberSummary, IApiResponse } from '../types/member-photo.types';
+
+const apiClient = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/v1',
+});
+
+// Attach Authorization header
+apiClient.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+/**
+ * Uploads cropped member personal photo file
+ */
+export async function uploadMemberPhoto(
+  memberId: string,
+  file: File | Blob,
+  onProgress?: (percent: number) => void
+): Promise<IMemberSummary> {
+  const formData = new FormData();
+  formData.append('photo', file, 'member-photo.jpg');
+
+  const response = await apiClient.post<IApiResponse<IMemberSummary>>(
+    `/members/${memberId}/photo`,
+    formData,
+    {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      onUploadProgress: (progressEvent) => {
+        if (progressEvent.total && onProgress) {
+          const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          onProgress(percent);
+        }
+      },
+    }
+  );
+
+  return response.data.data;
+}
+
+/**
+ * Removes member personal photo
+ */
+export async function deleteMemberPhoto(memberId: string): Promise<IMemberSummary> {
+  const response = await apiClient.delete<IApiResponse<IMemberSummary>>(
+    `/members/${memberId}/photo`
+  );
+  return response.data.data;
+}
+
+/**
+ * Resolves static URL with cache-busting timestamp
+ */
+export function resolvePhotoUrl(path?: string | null, timestamp?: number): string {
+  if (!path) return '';
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    return path;
+  }
+  const baseUrl = import.meta.env.VITE_SERVER_URL || 'http://localhost:5000';
+  const cleanBase = baseUrl.replace(/\/$/, '');
+  const cleanPath = path.replace(/^\//, '');
+  const url = `${cleanBase}/${cleanPath}`;
+  return timestamp ? `${url}?t=${timestamp}` : url;
+}
+```
+
+---
+
+### 5.2 Vue 3 Implementation Example
+
+#### `MemberAvatar.vue`
+```vue
+<template>
+  <div
+    class="relative inline-flex items-center justify-center overflow-hidden font-bold select-none"
+    :class="[sizeClasses, shapeClasses, backgroundClass]"
+  >
+    <!-- Member Photo Image -->
+    <img
+      v-if="fullImageUrl && !imageError"
+      :src="fullImageUrl"
+      :alt="fullName || 'تصویر عضو'"
+      class="w-full h-full object-cover"
+      loading="lazy"
+      @error="imageError = true"
+    />
+
+    <!-- Fallback Initials / Silhouette -->
+    <span v-else class="text-slate-600 dark:text-slate-200">
+      {{ initials || '---' }}
+    </span>
+
+    <!-- Status Badge -->
+    <span
+      v-if="showStatus && status"
+      class="absolute bottom-0 right-0 block rounded-full ring-2 ring-white dark:ring-slate-900"
+      :class="[statusSizeClass, statusColorClass]"
+      :title="`وضعیت: ${status}`"
+    />
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, computed } from 'vue';
+import { resolvePhotoUrl } from '@/services/member-photo.service';
+
+const props = withDefaults(
+  defineProps<{
+    profileImage?: string | null;
+    fullName?: string;
+    status?: 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'EXPIRED' | 'REJECTED';
+    size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | 'card';
+    shape?: 'circle' | 'rounded' | 'portrait';
+    showStatus?: boolean;
+    timestamp?: number;
+  }>(),
+  {
+    profileImage: '',
+    fullName: '',
+    size: 'md',
+    shape: 'rounded',
+    showStatus: false,
+    timestamp: 0,
+  }
+);
+
+const imageError = ref(false);
+
+const fullImageUrl = computed(() => {
+  return resolvePhotoUrl(props.profileImage, props.timestamp);
+});
+
+const initials = computed(() => {
+  if (!props.fullName) return '';
+  const parts = props.fullName.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].slice(0, 2);
+  return `${parts[0][0]} ${parts[parts.length - 1][0]}`;
+});
+
+const sizeClasses = computed(() => {
+  switch (props.size) {
+    case 'xs': return 'w-6 h-6 text-xs';
+    case 'sm': return 'w-9 h-9 text-xs';
+    case 'md': return 'w-12 h-12 text-sm';
+    case 'lg': return 'w-20 h-20 text-lg';
+    case 'xl': return 'w-28 h-36 text-xl'; // 3:4 portrait
+    case 'card': return 'w-44 h-60 text-2xl'; // ID Card size
+    default: return 'w-12 h-12 text-sm';
+  }
+});
+
+const shapeClasses = computed(() => {
+  if (props.size === 'xl' || props.size === 'card' || props.shape === 'portrait') {
+    return 'rounded-xl';
+  }
+  return props.shape === 'circle' ? 'rounded-full' : 'rounded-lg';
+});
+
+const backgroundClass = computed(() => {
+  return props.profileImage && !imageError.value
+    ? 'bg-slate-100'
+    : 'bg-slate-200 dark:bg-slate-700';
+});
+
+const statusSizeClass = computed(() => {
+  return props.size === 'xs' || props.size === 'sm' ? 'w-2 h-2' : 'w-3.5 h-3.5';
+});
+
+const statusColorClass = computed(() => {
+  switch (props.status) {
+    case 'ACTIVE': return 'bg-emerald-500';
+    case 'PENDING': return 'bg-amber-500';
+    case 'SUSPENDED':
+    case 'REJECTED': return 'bg-rose-500';
+    default: return 'bg-slate-400';
+  }
+});
+</script>
+```
+
+---
+
+#### `MemberPhotoModal.vue` (Upload & Crop Dialog)
+```vue
+<template>
+  <div v-if="isOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" dir="rtl">
+    <div class="w-full max-w-lg bg-white dark:bg-slate-800 rounded-2xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-700">
+      <!-- Header -->
+      <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-700">
+        <h3 class="text-base font-bold text-slate-800 dark:text-slate-100">
+          مدیریت تصویر پرسنلی عضو
+        </h3>
+        <button
+          type="button"
+          class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1"
+          @click="closeModal"
+        >
+          ✕
+        </button>
+      </div>
+
+      <!-- Body Content -->
+      <div class="p-6 space-y-4">
+        <!-- Dropzone when no new file selected -->
+        <div
+          v-if="!cropSource"
+          class="flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-xl cursor-pointer transition hover:bg-slate-50 dark:hover:bg-slate-800/50"
+          :class="isDragging ? 'border-primary-500 bg-primary-50/20' : 'border-slate-300 dark:border-slate-600'"
+          @dragover.prevent="isDragging = true"
+          @dragleave.prevent="isDragging = false"
+          @drop.prevent="handleDrop"
+          @click="fileInputRef?.click()"
+        >
+          <input
+            ref="fileInputRef"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            class="hidden"
+            @change="handleFileSelected"
+          />
+          <div class="p-4 rounded-full bg-primary-50 dark:bg-primary-950/40 text-primary-600 mb-3">
+            📷
+          </div>
+          <p class="text-sm font-semibold text-slate-700 dark:text-slate-300">
+            برای بارگذاری کلیک کنید یا عکس را اینجا بکشید
+          </p>
+          <p class="text-xs text-slate-400 mt-1">
+            فرمت‌های مجاز: JPG, PNG, WEBP (حداکثر ۵ مگابایت)
+          </p>
+        </div>
+
+        <!-- Crop Preview Area -->
+        <div v-else class="space-y-3">
+          <div class="relative w-full h-72 bg-black rounded-xl overflow-hidden flex items-center justify-center">
+            <img ref="cropImageRef" :src="cropSource" alt="پیش‌نمایش برش" class="max-h-full" />
+          </div>
+          <div class="flex items-center justify-between text-xs text-slate-500">
+            <span>نسبت ابعاد عکس: ۳ به ۴ (پرسنلی رسمی)</span>
+            <button
+              type="button"
+              class="text-rose-600 hover:underline"
+              @click="resetSelectedFile"
+            >
+              انتخاب عکس دیگر
+            </button>
+          </div>
+        </div>
+
+        <!-- Upload Progress Indicator -->
+        <div v-if="isUploading" class="space-y-1">
+          <div class="flex justify-between text-xs text-slate-600 dark:text-slate-400">
+            <span>در حال ارسال...</span>
+            <span>{{ uploadProgress }}%</span>
+          </div>
+          <div class="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+            <div
+              class="bg-primary-600 h-2 rounded-full transition-all duration-200"
+              :style="{ width: `${uploadProgress}%` }"
+            />
+          </div>
+        </div>
+
+        <!-- Error Message -->
+        <div v-if="errorMessage" class="p-3 text-xs rounded-lg bg-rose-50 text-rose-600 border border-rose-200">
+          {{ errorMessage }}
+        </div>
+      </div>
+
+      <!-- Footer Buttons -->
+      <div class="flex items-center justify-between px-6 py-4 bg-slate-50 dark:bg-slate-800/80 border-t border-slate-100 dark:border-slate-700">
+        <!-- Delete Photo Button -->
+        <button
+          v-if="currentPhoto && !cropSource"
+          type="button"
+          :disabled="isDeleting || isUploading"
+          class="px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition"
+          @click="confirmDelete"
+        >
+          {{ isDeleting ? 'در حال حذف...' : 'حذف تصویر فعلی' }}
+        </button>
+        <span v-else />
+
+        <!-- Confirm / Cancel Actions -->
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            class="px-4 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200/60 rounded-lg transition"
+            @click="closeModal"
+          >
+            انصراف
+          </button>
+          <button
+            v-if="cropSource"
+            type="button"
+            :disabled="isUploading"
+            class="px-4 py-2 text-xs font-semibold text-white bg-primary-600 hover:bg-primary-700 disabled:opacity-50 rounded-lg shadow-sm transition"
+            @click="executeUpload"
+          >
+            {{ isUploading ? 'در حال ارسال...' : 'تائید و بارگذاری' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref } from 'vue';
+import { uploadMemberPhoto, deleteMemberPhoto } from '@/services/member-photo.service';
+
+const props = defineProps<{
+  isOpen: boolean;
+  memberId: string;
+  currentPhoto?: string | null;
+}>();
+
+const emit = defineEmits<{
+  (e: 'close'): void;
+  (e: 'updated', updatedPhotoPath: string): void;
+}>();
+
+const fileInputRef = ref<HTMLInputElement | null>(null);
+const isDragging = ref(false);
+const cropSource = ref<string | null>(null);
+const selectedRawFile = ref<File | null>(null);
+const isUploading = ref(false);
+const isDeleting = ref(false);
+const uploadProgress = ref(0);
+const errorMessage = ref<string | null>(null);
+
+function handleFileSelected(event: Event) {
+  const target = event.target as HTMLInputElement;
+  if (target.files && target.files[0]) {
+    processFile(target.files[0]);
+  }
+}
+
+function handleDrop(event: DragEvent) {
+  isDragging.value = false;
+  if (event.dataTransfer?.files && event.dataTransfer.files[0]) {
+    processFile(event.dataTransfer.files[0]);
+  }
+}
+
+function processFile(file: File) {
+  errorMessage.value = null;
+
+  // Validate format
+  const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+  if (!allowed.includes(file.type)) {
+    errorMessage.value = 'فرمت فایل معتبر نیست. لطفاً تصویر JPG، PNG یا WEBP انتخاب کنید.';
+    return;
+  }
+
+  // Validate size (max 5MB)
+  if (file.size > 5 * 1024 * 1024) {
+    errorMessage.value = 'حجم فایل بیشتر از ۵ مگابایت است.';
+    return;
+  }
+
+  selectedRawFile.value = file;
+  cropSource.value = URL.createObjectURL(file);
+}
+
+function resetSelectedFile() {
+  if (cropSource.value) {
+    URL.revokeObjectURL(cropSource.value);
+  }
+  cropSource.value = null;
+  selectedRawFile.value = null;
+  if (fileInputRef.value) fileInputRef.value.value = '';
+}
+
+async function executeUpload() {
+  if (!selectedRawFile.value) return;
+
+  isUploading.value = true;
+  uploadProgress.value = 0;
+  errorMessage.value = null;
+
+  try {
+    const updatedMember = await uploadMemberPhoto(
+      props.memberId,
+      selectedRawFile.value,
+      (progress) => {
+        uploadProgress.value = progress;
+      }
+    );
+    emit('updated', updatedMember.profileImage || '');
+    closeModal();
+  } catch (err: any) {
+    errorMessage.value = err.response?.data?.message || 'خطا در بارگذاری تصویر پرسنلی';
+  } finally {
+    isUploading.value = false;
+  }
+}
+
+async function confirmDelete() {
+  if (!confirm('آیا از حذف عکس پرسنلی این عضو اطمینان دارید؟')) return;
+
+  isDeleting.value = true;
+  errorMessage.value = null;
+  try {
+    await deleteMemberPhoto(props.memberId);
+    emit('updated', '');
+    closeModal();
+  } catch (err: any) {
+    errorMessage.value = err.response?.data?.message || 'خطا در حذف تصویر پرسنلی';
+  } finally {
+    isDeleting.value = false;
+  }
+}
+
+function closeModal() {
+  resetSelectedFile();
+  emit('close');
+}
+</script>
+```
+
+---
+
+### 5.3 React Implementation Example (`MemberAvatar.tsx`)
+
+```tsx
+import React, { useState } from 'react';
+import { resolvePhotoUrl } from '../services/member-photo.service';
+
+interface MemberAvatarProps {
+  profileImage?: string | null;
+  fullName?: string;
+  status?: 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'EXPIRED' | 'REJECTED';
+  size?: 'sm' | 'md' | 'lg' | 'xl';
+  shape?: 'circle' | 'rounded' | 'portrait';
+  showStatus?: boolean;
+  timestamp?: number;
+}
+
+export const MemberAvatar: React.FC<MemberAvatarProps> = ({
+  profileImage,
+  fullName = '',
+  status,
+  size = 'md',
+  shape = 'rounded',
+  showStatus = false,
+  timestamp,
+}) => {
+  const [hasError, setHasError] = useState(false);
+
+  const photoUrl = resolvePhotoUrl(profileImage, timestamp);
+
+  const getInitials = (name: string): string => {
+    const parts = name.trim().split(/\s+/);
+    if (!parts[0]) return '---';
+    if (parts.length === 1) return parts[0].slice(0, 2);
+    return `${parts[0][0]} ${parts[parts.length - 1][0]}`;
+  };
+
+  const sizeClasses = {
+    sm: 'w-8 h-8 text-xs',
+    md: 'w-12 h-12 text-sm',
+    lg: 'w-20 h-20 text-lg',
+    xl: 'w-28 h-36 text-xl',
+  }[size];
+
+  const shapeClass =
+    size === 'xl' || shape === 'portrait'
+      ? 'rounded-xl'
+      : shape === 'circle'
+      ? 'rounded-full'
+      : 'rounded-lg';
+
+  const statusBg = {
+    ACTIVE: 'bg-emerald-500',
+    PENDING: 'bg-amber-500',
+    SUSPENDED: 'bg-rose-500',
+    REJECTED: 'bg-rose-500',
+    EXPIRED: 'bg-slate-400',
+  }[status || 'ACTIVE'];
+
+  return (
+    <div
+      className={`relative inline-flex items-center justify-center overflow-hidden select-none font-bold bg-slate-100 dark:bg-slate-800 ${sizeClasses} ${shapeClass}`}
+    >
+      {photoUrl && !hasError ? (
+        <img
+          src={photoUrl}
+          alt={fullName || 'تصویر عضو'}
+          className="w-full h-full object-cover"
+          loading="lazy"
+          onError={() => setHasError(true)}
+        />
+      ) : (
+        <span className="text-slate-600 dark:text-slate-300">
+          {getInitials(fullName)}
+        </span>
+      )}
+
+      {showStatus && status && (
+        <span
+          className={`absolute bottom-0 right-0 w-3 h-3 rounded-full ring-2 ring-white dark:ring-slate-900 ${statusBg}`}
+          title={`وضعیت: ${status}`}
+        />
+      )}
+    </div>
+  );
+};
+```
+
+---
+
+## 6. Table & Grid Integration Example
+
+When listing members in `MemberTable.vue` or `MemberList.tsx`:
+
+```html
+<!-- Table Row Example -->
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+  <td class="p-3">
+    <div class="flex items-center gap-3">
+      <!-- Member Avatar -->
+      <MemberAvatar
+        :profile-image="member.profileImage"
+        :full-name="member.fullName"
+        :status="member.status"
+        size="sm"
+        shape="circle"
+        show-status
+      />
+      <div>
+        <div class="font-semibold text-slate-800 dark:text-slate-100">
+          {{ member.fullName }}
+        </div>
+        <div class="text-xs text-slate-400">
+          کد عضویت: {{ member.memberCode }}
+        </div>
+      </div>
+    </div>
+  </td>
+  <!-- Other columns... -->
+</tr>
+```
+
+---
+
+## 7. Edge Cases & Best Practices
+
+1. **Cache Busting Strategy:**
+   When re-uploading a photo for member `ID`, browsers may serve the old cached image because URLs might share similar paths. Always maintain a local state `photoTimestamp = Date.now()` and pass it as query parameter:
+   `GET /uploads/members/photos/memberId-xxx.jpg?t=1729241500`
+2. **CORS & Static Files:**
+   The backend serves files via `express.static('/uploads')` and has `crossOriginResourcePolicy: { policy: 'cross-origin' }` configured. Front-end requests from localhost ports (e.g. 5173, 3000, 8080) will display the image with no CORS errors.
+3. **Pre-flight Dimension & Aspect Ratio Recommendations:**
+   - Preferred Portrait Ratio: **3:4** (Width: 600px, Height: 800px or Width: 300px, Height: 400px).
+   - Preferred Square Ratio: **1:1** (Width: 400px, Height: 400px).
+   - Maximum upload file size: **5MB**.
+4. **Member Creation Flow vs Member Edit Flow:**
+   - **Editing an existing member:** Call `POST /api/v1/members/:id/photo` directly.
+   - **Creating a new member:**
+     - Option A: Create member record first with `POST /api/v1/members`, then call `POST /api/v1/members/{newId}/photo`.
+     - Option B: If the photo was uploaded beforehand or hosted elsewhere, pass `profileImage` string directly in `POST /api/v1/members`.
+5. **Cascading File Deletion:**
+   When a member is permanently deleted via `DELETE /api/v1/members/:id`, the backend automatically removes the physical photo file from the disk to prevent disk accumulation.

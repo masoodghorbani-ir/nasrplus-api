@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { MemberService } from '../services/member.service';
 import { ApiResponse } from '../../../common/utils/api-response';
+import { ApiError } from '../../../common/utils/api-error';
 
 export class MemberController {
   private memberService: MemberService;
@@ -77,6 +78,29 @@ export class MemberController {
       const id = req.params.id as string;
       const deleted = await this.memberService.deleteMember(id);
       res.json(ApiResponse.success(deleted, 'Member deleted successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  uploadMemberPhoto = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const id = req.params.id as string;
+      if (!req.file) {
+        throw ApiError.badRequest('Photo file is required');
+      }
+      const updated = await this.memberService.uploadMemberPhoto(id, req.file);
+      res.json(ApiResponse.success(updated, 'Member photo uploaded successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  deleteMemberPhoto = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const id = req.params.id as string;
+      const updated = await this.memberService.deleteMemberPhoto(id);
+      res.json(ApiResponse.success(updated, 'Member photo removed successfully'));
     } catch (error) {
       next(error);
     }

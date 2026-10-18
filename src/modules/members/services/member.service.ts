@@ -1,3 +1,5 @@
+import path from 'path';
+import fs from 'fs';
 import { MemberRepository } from '../repositories/member.repository';
 import { IMember } from '../interfaces/member.interface';
 import { IMemberAddress } from '../interfaces/member-address.interface';
@@ -93,11 +95,68 @@ export class MemberService {
   }
 
   async deleteMember(id: string): Promise<IMember> {
+    const member = await this.getMemberById(id);
+    if (member.profileImage && member.profileImage.startsWith('/uploads/')) {
+      const diskPath = path.join(process.cwd(), member.profileImage.replace(/^\//, ''));
+      if (fs.existsSync(diskPath)) {
+        try {
+          fs.unlinkSync(diskPath);
+        } catch {
+          // Ignore file deletion error
+        }
+      }
+    }
+
     const deleted = await this.memberRepository.deleteById(id);
     if (!deleted) {
       throw ApiError.notFound(`Member with ID '${id}' was not found`);
     }
     return deleted;
+  }
+
+  // --- Member Profile Photo Methods ---
+  async uploadMemberPhoto(id: string, file: Express.Multer.File): Promise<IMember> {
+    const member = await this.getMemberById(id);
+
+    // Remove old local photo file if present
+    if (member.profileImage && member.profileImage.startsWith('/uploads/')) {
+      const oldDiskPath = path.join(process.cwd(), member.profileImage.replace(/^\//, ''));
+      if (fs.existsSync(oldDiskPath)) {
+        try {
+          fs.unlinkSync(oldDiskPath);
+        } catch {
+          // Ignore file deletion error
+        }
+      }
+    }
+
+    const relativePath = `/uploads/members/photos/${file.filename}`;
+    const updated = await this.memberRepository.updateById(id, { profileImage: relativePath });
+    if (!updated) {
+      throw ApiError.notFound(`Member with ID '${id}' was not found`);
+    }
+    return updated;
+  }
+
+  async deleteMemberPhoto(id: string): Promise<IMember> {
+    const member = await this.getMemberById(id);
+
+    if (member.profileImage && member.profileImage.startsWith('/uploads/')) {
+      const diskPath = path.join(process.cwd(), member.profileImage.replace(/^\//, ''));
+      if (fs.existsSync(diskPath)) {
+        try {
+          fs.unlinkSync(diskPath);
+        } catch {
+          // Ignore file deletion error
+        }
+      }
+    }
+
+    const updated = await this.memberRepository.updateById(id, { profileImage: '' });
+    if (!updated) {
+      throw ApiError.notFound(`Member with ID '${id}' was not found`);
+    }
+    return updated;
   }
 
   // --- Member Address Methods ---

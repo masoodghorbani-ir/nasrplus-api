@@ -1,4 +1,5 @@
 import express, { Application } from 'express';
+import path from 'path';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
@@ -20,11 +21,15 @@ const app: Application = express();
 app.use(
   helmet({
     contentSecurityPolicy: false,
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
   })
 );
 app.use(cors({ origin: envConfig.corsOrigin }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Serve uploaded static files
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 if (!envConfig.isProduction) {
   app.use(morgan('dev'));

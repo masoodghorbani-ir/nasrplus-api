@@ -23,6 +23,7 @@ export const swaggerDocument = {
     { name: 'Member Addresses', description: 'Postal address management for individual and corporate members' },
     { name: 'Member Telephones', description: 'Contact phone numbers, mobile, and telecommunication lines' },
     { name: 'Member Academic Qualifications', description: 'Academic degrees and qualifications of members with verification workflows and audit logs' },
+    { name: 'Member Skills & Specializations', description: 'Guild member skills, self-assessment, valid certificates, and expert verification workflow' },
     { name: 'Companies', description: 'Corporate entity profiles and organizational affiliations' },
     { name: 'Lookups - Membership Types', description: 'Classifications: Individual, Legal Entity, Store, Honorary' },
     { name: 'Lookups - Specializations', description: 'Guild technical branches (Software, Hardware, Network, etc.)' },
@@ -703,6 +704,298 @@ export const swaggerDocument = {
           },
           400: { description: 'Bad request: Invalid status or missing rejectionReason when rejected' },
           404: { description: 'Qualification or member not found' },
+        },
+      },
+    },
+
+    // -------------------------------------------------------------
+    // GLOBAL MEMBER SKILLS / EXPERT DESK ROUTES
+    // -------------------------------------------------------------
+    '/api/v1/members/skills': {
+      get: {
+        tags: ['Member Skills & Specializations'],
+        summary: 'Expert Desk: List and filter all member skills',
+        description: 'Retrieves all member skills across all members with optional filters by member ID, specialization ID, and verification status.',
+        parameters: [
+          { name: 'memberId', in: 'query', schema: { type: 'string' }, description: 'Filter by Member ID' },
+          { name: 'specializationId', in: 'query', schema: { type: 'string' }, description: 'Filter by Specialization ID' },
+          { name: 'verificationStatus', in: 'query', schema: { type: 'string', enum: ['PENDING', 'APPROVED', 'REJECTED'] }, description: 'Filter by verification status' },
+        ],
+        responses: {
+          200: {
+            description: 'Member skills retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: { type: 'array', items: { $ref: '#/components/schemas/MemberSkill' } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    '/api/v1/members/skills/{id}': {
+      get: {
+        tags: ['Member Skills & Specializations'],
+        summary: 'Expert Desk: Get single member skill by ID',
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' }, description: 'Skill ID' },
+        ],
+        responses: {
+          200: {
+            description: 'Member skill retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: { $ref: '#/components/schemas/MemberSkill' },
+                  },
+                },
+              },
+            },
+          },
+          404: { description: 'Member skill not found' },
+        },
+      },
+    },
+    '/api/v1/members/skills/{id}/verify': {
+      patch: {
+        tags: ['Member Skills & Specializations'],
+        summary: 'Expert Desk: Verify or reject a member skill',
+        description: 'Updates verification status to APPROVED or REJECTED. rejectionReason is required when status is REJECTED.',
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' }, description: 'Skill ID' },
+        ],
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/VerifySkillInput' } } },
+        },
+        responses: {
+          200: {
+            description: 'Member skill verification status updated successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: { $ref: '#/components/schemas/MemberSkill' },
+                  },
+                },
+              },
+            },
+          },
+          400: { description: 'Bad request: Invalid status or missing rejection reason' },
+          404: { description: 'Member skill not found' },
+        },
+      },
+    },
+
+    // -------------------------------------------------------------
+    // MEMBER SKILLS SUB-ROUTES
+    // -------------------------------------------------------------
+    '/api/v1/members/{id}/skills': {
+      get: {
+        tags: ['Member Skills & Specializations'],
+        summary: 'Get all skills of a member',
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' }, description: 'Member ID' },
+        ],
+        responses: {
+          200: {
+            description: 'Member skills retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: { type: 'array', items: { $ref: '#/components/schemas/MemberSkill' } },
+                  },
+                },
+              },
+            },
+          },
+          404: { description: 'Member not found' },
+        },
+      },
+      post: {
+        tags: ['Member Skills & Specializations'],
+        summary: 'Add a new skill and specialization for a member',
+        description: 'Registers a member skill referencing a specialization, start date, self-assessed percentage (1-100), whether valid certificate exists, and optional certificate file upload.',
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' }, description: 'Member ID' },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'multipart/form-data': {
+              schema: {
+                type: 'object',
+                required: ['specializationId', 'startDate', 'selfAssessmentPercentage'],
+                properties: {
+                  specializationId: { type: 'string', description: 'Reference ID to Specialization' },
+                  startDate: { type: 'string', format: 'date', example: '2020-03-20', description: 'Activity start date in this skill' },
+                  selfAssessmentPercentage: { type: 'integer', minimum: 1, maximum: 100, example: 85, description: 'Self-assessed skill percentage (1 to 100)' },
+                  hasCertificate: { type: 'boolean', example: true, description: 'Whether member possesses valid certificate' },
+                  certificateTitle: { type: 'string', example: 'Cisco Certified Network Associate', description: 'Optional certificate title' },
+                  certificate: { type: 'string', format: 'binary', description: 'Certificate file (PDF, JPEG, PNG, WebP up to 10MB)' },
+                  description: { type: 'string', example: 'Experienced in enterprise network architecture' },
+                },
+              },
+            },
+            'application/json': {
+              schema: { $ref: '#/components/schemas/CreateMemberSkillInput' },
+            },
+          },
+        },
+        responses: {
+          201: {
+            description: 'Member skill registered successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: { $ref: '#/components/schemas/MemberSkill' },
+                  },
+                },
+              },
+            },
+          },
+          400: { description: 'Bad request: Validation error or missing certificate' },
+          404: { description: 'Member or specialization not found' },
+        },
+      },
+    },
+    '/api/v1/members/{id}/skills/{skillId}': {
+      get: {
+        tags: ['Member Skills & Specializations'],
+        summary: 'Get single skill of a member',
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' }, description: 'Member ID' },
+          { name: 'skillId', in: 'path', required: true, schema: { type: 'string' }, description: 'Skill ID' },
+        ],
+        responses: {
+          200: { description: 'Member skill retrieved successfully' },
+          404: { description: 'Skill or member not found' },
+        },
+      },
+      put: {
+        tags: ['Member Skills & Specializations'],
+        summary: 'Update a member skill',
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' }, description: 'Member ID' },
+          { name: 'skillId', in: 'path', required: true, schema: { type: 'string' }, description: 'Skill ID' },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'multipart/form-data': {
+              schema: {
+                type: 'object',
+                properties: {
+                  specializationId: { type: 'string' },
+                  startDate: { type: 'string', format: 'date' },
+                  selfAssessmentPercentage: { type: 'integer', minimum: 1, maximum: 100 },
+                  hasCertificate: { type: 'boolean' },
+                  certificateTitle: { type: 'string' },
+                  certificate: { type: 'string', format: 'binary' },
+                  description: { type: 'string' },
+                },
+              },
+            },
+            'application/json': {
+              schema: { $ref: '#/components/schemas/CreateMemberSkillInput' },
+            },
+          },
+        },
+        responses: {
+          200: { description: 'Skill updated successfully' },
+          400: { description: 'Bad request' },
+          404: { description: 'Skill or member not found' },
+        },
+      },
+      delete: {
+        tags: ['Member Skills & Specializations'],
+        summary: 'Delete a member skill',
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' }, description: 'Member ID' },
+          { name: 'skillId', in: 'path', required: true, schema: { type: 'string' }, description: 'Skill ID' },
+        ],
+        responses: {
+          200: { description: 'Skill deleted successfully' },
+          404: { description: 'Skill or member not found' },
+        },
+      },
+    },
+    '/api/v1/members/{id}/skills/{skillId}/certificate': {
+      post: {
+        tags: ['Member Skills & Specializations'],
+        summary: 'Upload or replace certificate document for a member skill',
+        description: 'Uploads a valid certificate (PDF or Image up to 10MB). Automatically resets verification status to PENDING for expert review.',
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' }, description: 'Member ID' },
+          { name: 'skillId', in: 'path', required: true, schema: { type: 'string' }, description: 'Skill ID' },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'multipart/form-data': {
+              schema: {
+                type: 'object',
+                required: ['certificate'],
+                properties: {
+                  certificate: { type: 'string', format: 'binary', description: 'Certificate file (PDF, JPEG, PNG, WebP)' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: 'Certificate uploaded successfully and status reset to PENDING' },
+          400: { description: 'File missing or invalid file format' },
+          404: { description: 'Skill or member not found' },
+        },
+      },
+      delete: {
+        tags: ['Member Skills & Specializations'],
+        summary: 'Remove certificate file from a member skill',
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' }, description: 'Member ID' },
+          { name: 'skillId', in: 'path', required: true, schema: { type: 'string' }, description: 'Skill ID' },
+        ],
+        responses: {
+          200: { description: 'Certificate removed successfully' },
+          404: { description: 'Skill or member not found' },
+        },
+      },
+    },
+    '/api/v1/members/{id}/skills/{skillId}/verify': {
+      patch: {
+        tags: ['Member Skills & Specializations'],
+        summary: 'Verify or reject a member skill (Expert Workflow)',
+        description: 'Sets verification status to APPROVED or REJECTED. rejectionReason is required when status is REJECTED. Automatically records audit log.',
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' }, description: 'Member ID' },
+          { name: 'skillId', in: 'path', required: true, schema: { type: 'string' }, description: 'Skill ID' },
+        ],
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/VerifySkillInput' } } },
+        },
+        responses: {
+          200: { description: 'Verification status updated successfully' },
+          400: { description: 'Bad request: Invalid status or missing rejectionReason' },
+          404: { description: 'Skill or member not found' },
         },
       },
     },
@@ -1582,6 +1875,107 @@ export const swaggerDocument = {
             type: 'string',
             example: 'Degree verified via ministry inquiry service',
             description: 'Optional reviewer remarks or notes for audit log',
+          },
+        },
+      },
+      SkillVerificationLog: {
+        type: 'object',
+        properties: {
+          _id: { type: 'string' },
+          fromStatus: { type: 'string', enum: ['PENDING', 'APPROVED', 'REJECTED'] },
+          toStatus: { type: 'string', enum: ['PENDING', 'APPROVED', 'REJECTED'] },
+          changedBy: {
+            type: 'object',
+            properties: {
+              _id: { type: 'string' },
+              username: { type: 'string' },
+              fullName: { type: 'string' },
+            },
+          },
+          changedAt: { type: 'string', format: 'date-time' },
+          comment: { type: 'string', example: 'Status changed to APPROVED after verifying certificate' },
+        },
+      },
+      MemberSkill: {
+        type: 'object',
+        properties: {
+          _id: { type: 'string' },
+          memberId: { type: 'string', description: 'Associated Member ID' },
+          specializationId: {
+            type: 'string',
+            description: 'Reference ID or object to Specialization',
+            example: '67093bc2f9821a0012345672',
+          },
+          startDate: { type: 'string', format: 'date-time', example: '2020-03-20T00:00:00.000Z' },
+          selfAssessmentPercentage: { type: 'integer', minimum: 1, maximum: 100, example: 85 },
+          hasCertificate: { type: 'boolean', example: true },
+          certificateFile: { type: 'string', example: '/uploads/members/certificates/cert-12345.pdf' },
+          certificateTitle: { type: 'string', example: 'Cisco Certified Network Associate (CCNA)' },
+          description: { type: 'string', example: 'Specialized in LAN/WAN and cloud infrastructure' },
+          verificationStatus: {
+            type: 'string',
+            enum: ['PENDING', 'APPROVED', 'REJECTED'],
+            example: 'PENDING',
+          },
+          verifiedBy: {
+            type: 'object',
+            properties: {
+              _id: { type: 'string' },
+              username: { type: 'string' },
+              fullName: { type: 'string' },
+            },
+          },
+          verifiedAt: { type: 'string', format: 'date-time' },
+          rejectionReason: { type: 'string', example: 'Certificate is expired or not readable' },
+          verificationLogs: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/SkillVerificationLog' },
+          },
+          isActive: { type: 'boolean', default: true },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      CreateMemberSkillInput: {
+        type: 'object',
+        required: ['specializationId', 'startDate', 'selfAssessmentPercentage'],
+        properties: {
+          specializationId: { type: 'string', example: '67093bc2f9821a0012345672' },
+          startDate: { type: 'string', format: 'date', example: '2020-03-20' },
+          selfAssessmentPercentage: { type: 'integer', minimum: 1, maximum: 100, example: 85 },
+          hasCertificate: { type: 'boolean', example: true },
+          certificateFile: { type: 'string', example: '/uploads/members/certificates/cert-sample.pdf' },
+          certificateTitle: { type: 'string', example: 'Cisco Certified Network Associate (CCNA)' },
+          description: { type: 'string', example: '5 years of network experience' },
+          verificationStatus: {
+            type: 'string',
+            enum: ['PENDING', 'APPROVED', 'REJECTED'],
+            default: 'PENDING',
+          },
+          rejectionReason: {
+            type: 'string',
+            description: 'Required when verificationStatus is REJECTED',
+          },
+        },
+      },
+      VerifySkillInput: {
+        type: 'object',
+        required: ['status'],
+        properties: {
+          status: {
+            type: 'string',
+            enum: ['PENDING', 'APPROVED', 'REJECTED'],
+            example: 'APPROVED',
+          },
+          rejectionReason: {
+            type: 'string',
+            example: 'Certificate validity could not be verified by authorized registrar',
+            description: 'Required if status is REJECTED',
+          },
+          comment: {
+            type: 'string',
+            example: 'Skill certificate confirmed and approved by expert',
+            description: 'Optional reviewer remarks for audit log',
           },
         },
       },

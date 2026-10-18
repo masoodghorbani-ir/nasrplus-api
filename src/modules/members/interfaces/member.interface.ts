@@ -7,6 +7,7 @@ import { IAcademicQualification } from '../../lookup/interfaces/academic-qualifi
 import { ICompanyInformation } from '../../company/interfaces/company-information.interface';
 import { IMemberAddress } from './member-address.interface';
 import { IMemberTelephone } from './member-telephone.interface';
+import { IMemberSkill } from './member-skill.interface';
 
 export type MemberStatus = 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'EXPIRED' | 'REJECTED';
 export type Gender = 'MALE' | 'FEMALE' | 'OTHER';
@@ -43,5 +44,6 @@ export interface IMember extends Document {
   addresses?: IMemberAddress[];
   telephones?: IMemberTelephone[];
   academicQualifications?: IAcademicQualification[];
+  skills?: IMemberSkill[];
   readonly fullName: string;
 }

@@ -1,0 +1,217 @@
+---
+description: Technical specification and UI implementation guidelines for Member Skills & Specializations with Certificate Upload and Expert Verification Workflow
+globs: src/**/*.{ts,tsx,vue}
+---
+
+# Member Skills & Specializations Verification Specification
+
+Technical documentation and UI/UX contract for implementing the Member Skills & Specializations management ("مهارت‌ها و تخصص‌های عضو"), Certificate Upload, Expert Verification Workflow, and Status Transition Audit Logs.
+
+---
+
+## 1. Overview & Business Workflow
+
+The Member Skills & Specializations feature enables recording guild members' technical skills and professional competencies linked directly to the system `specializations` lookup table.
+
+### 1.1 Key Data Attributes
+1. **نوع مهارت (Skill / Specialization Type):** Foreign reference to the `Specialization` table (`specializationId`).
+2. **شروع به فعالیت در این مهارت (Activity Start Date):** The date the member started practicing this specific skill (`startDate`).
+3. **درجه مهارت به صورت خوداظهاری (Self-Assessment Degree / Level):** An integer percentage between **1% and 100%** (`selfAssessmentPercentage`).
+4. **آیا برای این مهارت گواهی معتبر دارد ؟ (Has Valid Certificate):** Boolean flag (`hasCertificate`).
+5. **بارگذاری گواهی مربوطه (Certificate Upload):** When valid certificate exists, the document/scan (PDF, JPEG, PNG, WebP up to 10MB) must be uploaded (`certificateFile`).
+6. **بررسی و تائید کارشناس (Expert Verification Workflow):** Review by authorized expert or admin, with audit trail and mandatory rejection reason.
+
+### 1.2 Verification Lifecycle States
+```
+       [ Member / Admin Submits Skill & Certificate ]
+                             │
+                             ▼
+                    ┌─────────────────┐
+                    │     PENDING     │ (Default: In review by expert)
+                    └────────┬────────┘
+                             │
+                  ┌──────────┴──────────┐
+                  ▼                     ▼
+         ┌─────────────────┐   ┌─────────────────┐
+         │    APPROVED     │   │    REJECTED     │
+         │ (Cert & Skill)  │   │(Reason Required)│
+         └────────┬────────┘   └────────┬────────┘
+                  │                     │
+                  └──────────┬──────────┘
+                             │ (Can be re-reviewed / reverted / re-uploaded)
+                             ▼
+                    ┌─────────────────┐
+                    │ PENDING / RESET │
+                    └─────────────────┘
+```
+
+1. **PENDING (در انتظار تائید کارشناس):**
+   - Automatically assigned upon initial registration or certificate re-upload.
+   - Initial submission is logged in `verificationLogs`.
+2. **APPROVED (تائید شده):**
+   - Set when an authorized expert or admin confirms the validity of the skill and certificate.
+   - Clears prior rejection reasons; records `verifiedAt` and `verifiedBy`.
+3. **REJECTED (رد شده):**
+   - Set when an expert rejects the skill claim or certificate.
+   - **`rejectionReason` is strictly required**.
+4. **Audit History Log (`verificationLogs`):**
+   - Every status transition (Creation, Upload, Approval, Rejection, Reversion) appends an immutable log record with:
+     - `fromStatus` & `toStatus`
+     - `changedBy` (Admin: username, fullName, type)
+     - `changedAt` (Timestamp)
+     - `comment` / `rejectionReason`
+
+---
+
+## 2. API Endpoints Contract
+
+All endpoints require `Authorization: Bearer <JWT>` header with appropriate permissions.
+
+### 2.1 Member Skills Sub-routes
+
+#### A. Get All Skills of a Member
+- **URL:** `GET /api/v1/members/:id/skills`
+- **Permission:** `members:read`
+- **Response (`200 OK`):**
+  ```json
+  {
+    "success": true,
+    "message": "Member skills retrieved successfully",
+    "data": [
+      {
+        "_id": "67104b2a1a89000012345678",
+        "memberId": "67093bc2f9821a0012345670",
+        "specializationId": {
+          "_id": "67093bc2f9821a0012345672",
+          "title": "شبکه و زیرساخت",
+          "code": "NET"
+        },
+        "startDate": "2020-03-20T00:00:00.000Z",
+        "selfAssessmentPercentage": 85,
+        "hasCertificate": true,
+        "certificateFile": "/uploads/members/certificates/cert-67093bc2f9821a0012345670-1729245000-a1b2c3d4.pdf",
+        "certificateTitle": "گواهینامه سیسکو CCNA",
+        "description": "تجربه عملی در پیاده‌سازی سوئیچینگ و روتینگ سازمانی",
+        "verificationStatus": "PENDING",
+        "verifiedBy": null,
+        "verifiedAt": null,
+        "rejectionReason": "",
+        "verificationLogs": [
+          {
+            "_id": "67104b2a1a89000012345679",
+            "toStatus": "PENDING",
+            "changedBy": null,
+            "changedAt": "2026-10-18T09:00:00.000Z",
+            "comment": "Initial registration - Pending expert verification"
+          }
+        ],
+        "isActive": true,
+        "createdAt": "2026-10-18T09:00:00.000Z",
+        "updatedAt": "2026-10-18T09:00:00.000Z"
+      }
+    ]
+  }
+  ```
+
+#### B. Add Skill for a Member (with Certificate Upload)
+- **URL:** `POST /api/v1/members/:id/skills`
+- **Permission:** `members:update`
+- **Content-Type:** `multipart/form-data` or `application/json`
+- **Form Fields (Multipart):**
+  - `specializationId`: (string, required) ObjectId of Specialization
+  - `startDate`: (string/date, required) Activity start date (e.g., `2020-03-20`)
+  - `selfAssessmentPercentage`: (number 1-100, required)
+  - `hasCertificate`: (boolean string `'true'`/`'false'`, required)
+  - `certificate`: (binary file, optional if hasCertificate is false, required if hasCertificate is true)
+  - `certificateTitle`: (string, optional)
+  - `description`: (string, optional)
+- **Response (`201 Created`):** Returns the created skill populated with specialization and initial log.
+
+#### C. Get Single Skill
+- **URL:** `GET /api/v1/members/:id/skills/:skillId`
+- **Permission:** `members:read`
+- **Response (`200 OK`):** Skill object.
+
+#### D. Update Member Skill Details
+- **URL:** `PUT /api/v1/members/:id/skills/:skillId`
+- **Permission:** `members:update`
+- **Content-Type:** `multipart/form-data` or `application/json`
+- **Response (`200 OK`):** Updated skill object.
+
+#### E. Delete Member Skill
+- **URL:** `DELETE /api/v1/members/:id/skills/:skillId`
+- **Permission:** `members:update`
+- **Response (`200 OK`):** Deleted skill object (and removes certificate file from disk).
+
+#### F. Upload / Replace Certificate Separately
+- **URL:** `POST /api/v1/members/:id/skills/:skillId/certificate`
+- **Permission:** `members:update`
+- **Content-Type:** `multipart/form-data` (Field: `certificate`)
+- **Note:** Automatically resets `verificationStatus` to `PENDING` and appends an audit log for re-review.
+- **Response (`200 OK`):** Updated skill object.
+
+#### G. Delete Certificate
+- **URL:** `DELETE /api/v1/members/:id/skills/:skillId/certificate`
+- **Permission:** `members:update`
+- **Response (`200 OK`):** Updated skill object (`certificateFile: ''`, `hasCertificate: false`).
+
+#### H. Verify / Reject Member Skill (Expert Workflow)
+- **URL:** `PATCH /api/v1/members/:id/skills/:skillId/verify`
+- **Permission:** `members:update`
+- **Content-Type:** `application/json`
+
+**Approval Payload:**
+```json
+{
+  "status": "APPROVED",
+  "comment": "گواهینامه سیسکو بررسی و اصالت آن تائید شد"
+}
+```
+
+**Rejection Payload (`rejectionReason` is required):**
+```json
+{
+  "status": "REJECTED",
+  "rejectionReason": "تصویر گواهینامه ناخوانا است و شماره سریال استعلام‌پذیر نمی‌باشد",
+  "comment": "عدم تطابق نام دارنده مدرک با مشخصات عضو"
+}
+```
+
+---
+
+### 2.2 Global Expert Desk Endpoints
+For reviewers managing all pending skills across members:
+- **List All Skills:** `GET /api/v1/members/skills?verificationStatus=PENDING&specializationId=...`
+- **Get Skill by ID:** `GET /api/v1/members/skills/:id`
+- **Direct Verify:** `PATCH /api/v1/members/skills/:id/verify`
+
+---
+
+## 3. UI Implementation Guidelines
+
+### 3.1 Self-Assessment Slider / Percentage Input
+- Range: `1` to `100%`.
+- Provide visual color-coded progress:
+  - 1% - 39%: مقدماتی (Beginner - Blue/Slate)
+  - 40% - 69%: متوسط (Intermediate - Amber/Orange)
+  - 70% - 89%: پیشرفته (Advanced - Emerald/Green)
+  - 90% - 100%: خبره / ارشد (Expert - Purple/Indigo)
+
+### 3.2 Certificate File Upload & Preview
+- When `hasCertificate` toggle is switched to **بله (Yes)**:
+  - Reveal certificate file uploader (drag & drop zone).
+  - Accepted formats: PDF, JPEG, PNG, WebP (up to 10MB).
+  - Show file thumbnail preview and download link when uploaded.
+- When `hasCertificate` toggle is **خیر (No)**:
+  - Hide certificate upload zone.
+
+### 3.3 Verification Status Badges
+- **PENDING:** Yellow / Amber badge with `Hourglass` icon (`در انتظار تائید کارشناس`).
+- **APPROVED:** Green badge with `CheckCircle` icon (`تائید شده`).
+- **REJECTED:** Red badge with `XCircle` icon (`رد شده`).
+  - Clicking on the rejected badge reveals tooltip or modal displaying `rejectionReason`.
+
+### 3.4 Expert Action Buttons (Admin Panel)
+- **تائید مدرک (Approve):** Opens confirmation modal with optional comment.
+- **رد مدرک (Reject):** Opens dialog with **mandatory** `rejectionReason` textarea. Disables the submit button until reason is provided.
+- **تاریخچه بررسی (Audit Trail):** Displays timeline modal listing all entries in `verificationLogs`.

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { MemberController } from '../controllers/member.controller';
 import { MemberImportController } from '../controllers/member-import.controller';
 import { accessControl } from '../../../common/middlewares/access-control.middleware';
-import { excelUpload, memberPhotoUpload } from '../../../common/middlewares/upload.middleware';
+import { excelUpload, memberPhotoUpload, memberCertificateUpload } from '../../../common/middlewares/upload.middleware';
 
 const router = Router();
 const memberController = new MemberController();
@@ -25,6 +25,11 @@ router.post(
   accessControl('private', 'members:create'),
   memberImportController.confirm
 );
+
+// --- Global Member Skills Routes (Expert Desk) ---
+router.get('/skills', accessControl('private', 'members:read'), memberController.getAllSkills);
+router.get('/skills/:id', accessControl('private', 'members:read'), memberController.getSkillByIdGlobal);
+router.patch('/skills/:id/verify', accessControl('private', 'members:update'), memberController.verifySkillGlobal);
 
 // --- Core Member Routes ---
 router.get('/', accessControl('private', 'members:read'), memberController.getMembers);
@@ -83,6 +88,51 @@ router.patch(
   '/:id/academic-qualifications/:qualificationId/verify',
   accessControl('private', 'members:update'),
   memberController.verifyMemberAcademicQualification
+);
+
+// --- Member Skill Sub-routes ---
+router.get(
+  '/:id/skills',
+  accessControl('private', 'members:read'),
+  memberController.getMemberSkills
+);
+router.post(
+  '/:id/skills',
+  accessControl('private', 'members:update'),
+  memberCertificateUpload.single('certificate'),
+  memberController.addMemberSkill
+);
+router.get(
+  '/:id/skills/:skillId',
+  accessControl('private', 'members:read'),
+  memberController.getMemberSkillById
+);
+router.put(
+  '/:id/skills/:skillId',
+  accessControl('private', 'members:update'),
+  memberCertificateUpload.single('certificate'),
+  memberController.updateMemberSkill
+);
+router.delete(
+  '/:id/skills/:skillId',
+  accessControl('private', 'members:update'),
+  memberController.deleteMemberSkill
+);
+router.post(
+  '/:id/skills/:skillId/certificate',
+  accessControl('private', 'members:update'),
+  memberCertificateUpload.single('certificate'),
+  memberController.uploadSkillCertificate
+);
+router.delete(
+  '/:id/skills/:skillId/certificate',
+  accessControl('private', 'members:update'),
+  memberController.deleteSkillCertificate
+);
+router.patch(
+  '/:id/skills/:skillId/verify',
+  accessControl('private', 'members:update'),
+  memberController.verifyMemberSkill
 );
 
 export const memberRoutes = router;

@@ -9,6 +9,7 @@
     "dev": "tsx watch src/server.ts",
     "seed": "tsx src/scripts/seed.ts",
     "test:auth": "tsx src/scripts/test-admin-access.ts",
+    "test:skills": "tsx src/scripts/test-member-skills.ts",
     "type-check": "tsc --noEmit"
   },
   "keywords": [

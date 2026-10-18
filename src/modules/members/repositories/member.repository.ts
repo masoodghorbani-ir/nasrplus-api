@@ -1,11 +1,15 @@
+import fs from 'fs';
+import path from 'path';
 import { FilterQuery, Types, UpdateQuery } from 'mongoose';
 import { Member } from '../models/member.model';
 import { MemberAddress } from '../models/member-address.model';
 import { MemberTelephone } from '../models/member-telephone.model';
+import { MemberSkill } from '../models/member-skill.model';
 import { AcademicQualification } from '../../lookup/models/academic-qualification.model';
 import { IMember } from '../interfaces/member.interface';
 import { IMemberAddress } from '../interfaces/member-address.interface';
 import { IMemberTelephone } from '../interfaces/member-telephone.interface';
+import { IMemberSkill, SkillVerificationStatus } from '../interfaces/member-skill.interface';
 import {
   IAcademicQualification,
   QualificationVerificationStatus,
@@ -50,7 +54,15 @@ export class MemberRepository {
           { path: 'city' },
         ],
       })
-      .populate('telephones');
+      .populate('telephones')
+      .populate({
+        path: 'skills',
+        populate: [
+          { path: 'specializationId' },
+          { path: 'verifiedBy', select: 'username fullName type' },
+          { path: 'verificationLogs.changedBy', select: 'username fullName type' },
+        ],
+      });
   }
 
   async find(filter: FilterQuery<IMember> = {}, skip = 0, limit = 20): Promise<IMember[]> {
@@ -81,11 +93,27 @@ export class MemberRepository {
   }
 
   async deleteById(id: string): Promise<IMember | null> {
-    // Delete associated addresses, telephones, and qualifications when member is deleted
+    // Delete associated certificates files from disk
+    const skills = await MemberSkill.find({ memberId: id });
+    for (const skill of skills) {
+      if (skill.certificateFile && skill.certificateFile.startsWith('/uploads/')) {
+        const diskPath = path.join(process.cwd(), skill.certificateFile.replace(/^\//, ''));
+        if (fs.existsSync(diskPath)) {
+          try {
+            fs.unlinkSync(diskPath);
+          } catch {
+            // Ignore file deletion error
+          }
+        }
+      }
+    }
+
+    // Delete associated addresses, telephones, qualifications, and skills when member is deleted
     await Promise.all([
       MemberAddress.deleteMany({ membershipId: id }),
       MemberTelephone.deleteMany({ membershipId: id }),
       AcademicQualification.deleteMany({ memberId: id }),
+      MemberSkill.deleteMany({ memberId: id }),
     ]);
     return await Member.findByIdAndDelete(id);
   }
@@ -300,5 +328,169 @@ export class MemberRepository {
       );
     }
     return deleted;
+  }
+
+  // --- Member Skill Operations ---
+  async findSkillsByMemberId(memberId: string): Promise<IMemberSkill[]> {
+    return await MemberSkill.find({ memberId })
+      .populate('specializationId')
+      .populate('verifiedBy', 'username fullName type')
+      .populate('verificationLogs.changedBy', 'username fullName type')
+      .sort({ createdAt: -1 });
+  }
+
+  async findSkillById(skillId: string, memberId: string): Promise<IMemberSkill | null> {
+    return await MemberSkill.findOne({ _id: skillId, memberId })
+      .populate('specializationId')
+      .populate('verifiedBy', 'username fullName type')
+      .populate('verificationLogs.changedBy', 'username fullName type');
+  }
+
+  async createSkill(
+    data: Partial<IMemberSkill>,
+    adminId?: string
+  ): Promise<IMemberSkill> {
+    const initialStatus: SkillVerificationStatus = data.verificationStatus || 'PENDING';
+    if (initialStatus === 'REJECTED' && (!data.rejectionReason || !data.rejectionReason.trim())) {
+      throw ApiError.badRequest('Rejection reason is required when status is REJECTED');
+    }
+
+    const payload: Partial<IMemberSkill> = {
+      ...data,
+      verificationStatus: initialStatus,
+    };
+
+    if (adminId && initialStatus !== 'PENDING') {
+      payload.verifiedBy = new Types.ObjectId(adminId);
+      payload.verifiedAt = new Date();
+    }
+
+    const initialComment = initialStatus === 'REJECTED'
+      ? (data.rejectionReason?.trim() || 'Initial registration - Rejected')
+      : (initialStatus === 'APPROVED'
+        ? 'Initial registration - Approved'
+        : 'Initial registration - Pending expert verification');
+
+    payload.verificationLogs = [
+      {
+        toStatus: initialStatus,
+        changedBy: adminId ? new Types.ObjectId(adminId) : null,
+        changedAt: new Date(),
+        comment: initialComment,
+      },
+    ];
+
+    const created = new MemberSkill(payload);
+    await created.save();
+
+    return await created.populate([
+      { path: 'specializationId' },
+      { path: 'verifiedBy', select: 'username fullName type' },
+      { path: 'verificationLogs.changedBy', select: 'username fullName type' },
+    ]);
+  }
+
+  async updateSkill(
+    skillId: string,
+    memberId: string,
+    data: Partial<IMemberSkill>,
+    adminId?: string
+  ): Promise<IMemberSkill | null> {
+    const item = await MemberSkill.findOne({ _id: skillId, memberId });
+    if (!item) {
+      return null;
+    }
+
+    const previousStatus = item.verificationStatus;
+    const isStatusChanging = data.verificationStatus && data.verificationStatus !== previousStatus;
+
+    if (isStatusChanging) {
+      if (data.verificationStatus === 'REJECTED' && !data.rejectionReason?.trim() && !item.rejectionReason?.trim()) {
+        throw ApiError.badRequest('Rejection reason is required when status is REJECTED');
+      }
+
+      const toStatus = data.verificationStatus as SkillVerificationStatus;
+      const logComment = toStatus === 'REJECTED'
+        ? (data.rejectionReason?.trim() || item.rejectionReason || 'Skill verification rejected')
+        : (toStatus === 'APPROVED' ? 'Skill verification approved' : 'Status reverted to pending');
+
+      item.verificationLogs.push({
+        fromStatus: previousStatus,
+        toStatus,
+        changedBy: adminId ? new Types.ObjectId(adminId) : null,
+        changedAt: new Date(),
+        comment: logComment,
+      });
+
+      item.verificationStatus = toStatus;
+      item.verifiedAt = toStatus !== 'PENDING' ? new Date() : null;
+      if (adminId) {
+        item.verifiedBy = new Types.ObjectId(adminId);
+      }
+      if (toStatus === 'REJECTED') {
+        item.rejectionReason = (data.rejectionReason || item.rejectionReason || '').trim();
+      } else if (toStatus === 'APPROVED') {
+        item.rejectionReason = '';
+      }
+    } else if (data.rejectionReason !== undefined) {
+      item.rejectionReason = data.rejectionReason.trim();
+    }
+
+    const { verificationStatus, verifiedBy, verifiedAt, verificationLogs, ...otherFields } = data as any;
+    Object.assign(item, otherFields);
+
+    await item.save();
+
+    return await item.populate([
+      { path: 'specializationId' },
+      { path: 'verifiedBy', select: 'username fullName type' },
+      { path: 'verificationLogs.changedBy', select: 'username fullName type' },
+    ]);
+  }
+
+  async deleteSkill(skillId: string, memberId: string): Promise<IMemberSkill | null> {
+    const item = await MemberSkill.findOne({ _id: skillId, memberId });
+    if (!item) {
+      return null;
+    }
+
+    if (item.certificateFile && item.certificateFile.startsWith('/uploads/')) {
+      const diskPath = path.join(process.cwd(), item.certificateFile.replace(/^\//, ''));
+      if (fs.existsSync(diskPath)) {
+        try {
+          fs.unlinkSync(diskPath);
+        } catch {
+          // Ignore file deletion error
+        }
+      }
+    }
+
+    return await MemberSkill.findOneAndDelete({ _id: skillId, memberId });
+  }
+
+  async findAllSkills(filter: {
+    memberId?: string;
+    specializationId?: string;
+    verificationStatus?: string;
+  } = {}): Promise<IMemberSkill[]> {
+    const query: Record<string, any> = {};
+    if (filter.memberId) query.memberId = filter.memberId;
+    if (filter.specializationId) query.specializationId = filter.specializationId;
+    if (filter.verificationStatus) query.verificationStatus = filter.verificationStatus;
+
+    return await MemberSkill.find(query)
+      .populate('memberId', 'memberCode nationalCode firstName lastName fullName status')
+      .populate('specializationId')
+      .populate('verifiedBy', 'username fullName type')
+      .populate('verificationLogs.changedBy', 'username fullName type')
+      .sort({ createdAt: -1 });
+  }
+
+  async findSkillByIdGlobal(id: string): Promise<IMemberSkill | null> {
+    return await MemberSkill.findById(id)
+      .populate('memberId', 'memberCode nationalCode firstName lastName fullName status')
+      .populate('specializationId')
+      .populate('verifiedBy', 'username fullName type')
+      .populate('verificationLogs.changedBy', 'username fullName type');
   }
 }

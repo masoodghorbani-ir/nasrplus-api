@@ -6,6 +6,7 @@ import { ApiError } from '../utils/api-error';
 
 const tempDir = path.join(process.cwd(), 'uploads', 'temp');
 const memberPhotosDir = path.join(process.cwd(), 'uploads', 'members', 'photos');
+const memberCertificatesDir = path.join(process.cwd(), 'uploads', 'members', 'certificates');
 
 // Ensure upload directories exist
 if (!fs.existsSync(tempDir)) {
@@ -13,6 +14,9 @@ if (!fs.existsSync(tempDir)) {
 }
 if (!fs.existsSync(memberPhotosDir)) {
   fs.mkdirSync(memberPhotosDir, { recursive: true });
+}
+if (!fs.existsSync(memberCertificatesDir)) {
+  fs.mkdirSync(memberCertificatesDir, { recursive: true });
 }
 
 // Multer disk storage for temporary Excel files
@@ -72,6 +76,38 @@ export const memberPhotoUpload = multer({
       cb(null, true);
     } else {
       cb(ApiError.badRequest('Invalid image format. Only JPEG, PNG, and WebP images are allowed'));
+    }
+  },
+});
+
+// Multer disk storage for member skill certificates
+const certificateStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, memberCertificatesDir);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const memberId = (req.params?.id as string) || 'member';
+    const uniqueSuffix = `${Date.now()}-${randomUUID().slice(0, 8)}`;
+    cb(null, `cert-${memberId}-${uniqueSuffix}${ext}`);
+  },
+});
+
+// Member certificate upload configuration (PDF and Images up to 10MB)
+export const memberCertificateUpload = multer({
+  storage: certificateStorage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB max certificate size
+  },
+  fileFilter: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const allowedExtensions = ['.pdf', '.jpg', '.jpeg', '.png', '.webp'];
+    const allowedMimeTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
+
+    if (allowedExtensions.includes(ext) && allowedMimeTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(ApiError.badRequest('Invalid file format. Only PDF and images (JPEG, PNG, WebP) are allowed for certificates'));
     }
   },
 });

@@ -268,4 +268,175 @@ export class MemberController {
       next(error);
     }
   };
+
+  // --- Member Skill Handlers ---
+  getMemberSkills = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const memberId = req.params.id as string;
+      const items = await this.memberService.getMemberSkills(memberId);
+      res.json(ApiResponse.success(items, 'Member skills retrieved successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  getMemberSkillById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const memberId = req.params.id as string;
+      const skillId = req.params.skillId as string;
+      const item = await this.memberService.getMemberSkillById(memberId, skillId);
+      res.json(ApiResponse.success(item, 'Member skill retrieved successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  addMemberSkill = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const memberId = req.params.id as string;
+      const adminId = (req as any).admin?._id?.toString();
+      const skill = await this.memberService.addMemberSkill(
+        memberId,
+        req.body,
+        req.file,
+        adminId
+      );
+      res.status(201).json(ApiResponse.created(skill, 'Member skill added successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  updateMemberSkill = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const memberId = req.params.id as string;
+      const skillId = req.params.skillId as string;
+      const adminId = (req as any).admin?._id?.toString();
+      const skill = await this.memberService.updateMemberSkill(
+        memberId,
+        skillId,
+        req.body,
+        req.file,
+        adminId
+      );
+      res.json(ApiResponse.success(skill, 'Member skill updated successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  deleteMemberSkill = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const memberId = req.params.id as string;
+      const skillId = req.params.skillId as string;
+      const deleted = await this.memberService.deleteMemberSkill(memberId, skillId);
+      res.json(ApiResponse.success(deleted, 'Member skill deleted successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  uploadSkillCertificate = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const memberId = req.params.id as string;
+      const skillId = req.params.skillId as string;
+      if (!req.file) {
+        throw ApiError.badRequest('Certificate file is required');
+      }
+      const adminId = (req as any).admin?._id?.toString();
+      const updated = await this.memberService.uploadSkillCertificate(
+        memberId,
+        skillId,
+        req.file,
+        adminId
+      );
+      res.json(ApiResponse.success(updated, 'Skill certificate uploaded successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  deleteSkillCertificate = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const memberId = req.params.id as string;
+      const skillId = req.params.skillId as string;
+      const updated = await this.memberService.deleteSkillCertificate(memberId, skillId);
+      res.json(ApiResponse.success(updated, 'Skill certificate deleted successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  verifyMemberSkill = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const memberId = req.params.id as string;
+      const skillId = req.params.skillId as string;
+      const { status, rejectionReason, comment } = req.body;
+      const adminId = (req as any).admin?._id?.toString();
+
+      const updated = await this.memberService.verifyMemberSkill(
+        memberId,
+        skillId,
+        status,
+        rejectionReason,
+        adminId,
+        comment
+      );
+      res.json(
+        ApiResponse.success(updated, 'Member skill verification status updated successfully')
+      );
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  // --- Global Expert Desk Skill Handlers ---
+  getAllSkills = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { memberId, specializationId, verificationStatus } = req.query as {
+        memberId?: string;
+        specializationId?: string;
+        verificationStatus?: string;
+      };
+      const items = await this.memberService.getAllSkills({
+        memberId,
+        specializationId,
+        verificationStatus,
+      });
+      res.json(ApiResponse.success(items, 'Member skills retrieved successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  getSkillByIdGlobal = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const id = req.params.id as string;
+      const item = await this.memberService.getSkillByIdGlobal(id);
+      res.json(ApiResponse.success(item, 'Member skill retrieved successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  verifySkillGlobal = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const id = req.params.id as string;
+      const { status, rejectionReason, comment } = req.body;
+      const adminId = (req as any).admin?._id?.toString();
+
+      const updated = await this.memberService.verifySkillGlobal(
+        id,
+        status,
+        rejectionReason,
+        adminId,
+        comment
+      );
+      res.json(
+        ApiResponse.success(updated, 'Member skill verification status updated successfully')
+      );
+    } catch (error) {
+      next(error);
+    }
+  };
 }

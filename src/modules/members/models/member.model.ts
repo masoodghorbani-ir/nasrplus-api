@@ -151,6 +151,12 @@ memberSchema.virtual('academicQualifications', {
   foreignField: 'memberId',
 });
 
+memberSchema.virtual('skills', {
+  ref: 'MemberSkill',
+  localField: '_id',
+  foreignField: 'memberId',
+});
+
 // Full name computed virtual
 memberSchema.virtual('fullName').get(function (this: IMember) {
   if (this.firstName || this.lastName) {

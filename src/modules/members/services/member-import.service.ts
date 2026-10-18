@@ -11,6 +11,8 @@ import {
   IImportPreviewResult,
   IImportRowError,
   IImportedMemberSummary,
+  IImportValidationResult,
+  IImportValidateRow,
 } from '../interfaces/member-import.interface';
 import {
   columnLetterToIndex,
@@ -48,6 +50,166 @@ export class MemberImportService {
         `Failed to parse Excel file: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
     }
+  }
+
+  // Validates spreadsheet rows against rules and database without persisting or deleting temp file
+  async validate(dto: IImportConfirmDto): Promise<IImportValidationResult> {
+    if (!dto.fileId) {
+      throw ApiError.badRequest('File ID is required');
+    }
+    if (!dto.fixedData) {
+      throw ApiError.badRequest('Fixed import data is required');
+    }
+    if (!dto.columnMapping) {
+      throw ApiError.badRequest('Column mapping configuration is required');
+    }
+
+    // Locate uploaded file
+    const filePath = this.findTempFile(dto.fileId);
+    if (!filePath) {
+      throw ApiError.notFound('Uploaded file session expired or not found. Please upload again.');
+    }
+
+    // Resolve fixed reference IDs to ensure they are valid
+    await this.resolveFixedReferences(dto.fixedData);
+
+    let workbook: XLSX.WorkBook;
+    try {
+      workbook = XLSX.readFile(filePath, { cellDates: true });
+    } catch (err) {
+      throw ApiError.badRequest(
+        `Failed to read spreadsheet file: ${err instanceof Error ? err.message : 'Unknown error'}`
+      );
+    }
+
+    const sheetName = dto.sheetName || workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    if (!sheet || !sheet['!ref']) {
+      throw ApiError.badRequest(`Worksheet '${sheetName}' does not exist or is empty`);
+    }
+
+    const range = XLSX.utils.decode_range(sheet['!ref']);
+    const startRow = dto.startRow && dto.startRow >= 1 ? dto.startRow : 2;
+
+    const rows: IImportValidateRow[] = [];
+    const seenMemberCodes = new Set<string>();
+    const seenNationalCodes = new Set<string>();
+
+    let totalProcessed = 0;
+    let validCount = 0;
+    let errorCount = 0;
+
+    // Resolve column indices from mapping
+    const colIndices = {
+      firstName: this.getColIndex(dto.columnMapping.firstName),
+      lastName: this.getColIndex(dto.columnMapping.lastName),
+      nationalCode: this.getColIndex(dto.columnMapping.nationalCode),
+      memberCode: this.getColIndex(dto.columnMapping.memberCode),
+      membershipDate: this.getColIndex(dto.columnMapping.membershipDate),
+      expiryDate: this.getColIndex(dto.columnMapping.expiryDate),
+      mobilePhone: this.getColIndex(dto.columnMapping.mobilePhone),
+      email: this.getColIndex(dto.columnMapping.email),
+    };
+
+    // Iterate through sheet rows
+    for (let r = startRow - 1; r <= range.e.r; r++) {
+      const rowNum = r + 1;
+
+      // Extract raw cell values
+      const rawMemberCode = this.getCellValue(sheet, r, colIndices.memberCode);
+      const rawNationalCode = this.getCellValue(sheet, r, colIndices.nationalCode);
+      const rawFirstName = this.getCellValue(sheet, r, colIndices.firstName);
+      const rawLastName = this.getCellValue(sheet, r, colIndices.lastName);
+      const rawMembershipDate = this.getCellValue(sheet, r, colIndices.membershipDate);
+      const rawExpiryDate = this.getCellValue(sheet, r, colIndices.expiryDate);
+      const rawMobile = this.getCellValue(sheet, r, colIndices.mobilePhone);
+      const rawEmail = this.getCellValue(sheet, r, colIndices.email);
+
+      // Skip completely empty rows
+      if (
+        !rawMemberCode &&
+        !rawNationalCode &&
+        !rawFirstName &&
+        !rawLastName &&
+        !rawMobile &&
+        !rawEmail
+      ) {
+        continue;
+      }
+
+      totalProcessed++;
+
+      const memberCode = normalizeMemberCode(rawMemberCode);
+      const nationalCode = normalizeNationalCode(rawNationalCode);
+      const firstName = rawFirstName ? String(rawFirstName).trim() : '';
+      const lastName = rawLastName ? String(rawLastName).trim() : '';
+      const email = rawEmail ? String(rawEmail).trim().toLowerCase() : '';
+      const mobilePhone = normalizeMobilePhone(rawMobile);
+      const fullName = `${firstName} ${lastName}`.trim();
+
+      const errors: string[] = [];
+
+      // Validate required memberCode
+      if (!memberCode) {
+        errors.push('کد عضویت در این ردیف الزامی است ولی وارد نشده است');
+      } else if (seenMemberCodes.has(memberCode)) {
+        errors.push(`کد عضویت '${memberCode}' در همین فایل تکرار شده است`);
+      } else {
+        const existingMemberCode = await Member.exists({ memberCode });
+        if (existingMemberCode) {
+          errors.push(`کد عضویت '${memberCode}' قبلاً در سامانه ثبت شده است`);
+        }
+      }
+
+      // Validate and check nationalCode duplicates if provided
+      if (nationalCode) {
+        if (!/^[0-9]{10}$/.test(nationalCode)) {
+          errors.push(`کد ملی '${nationalCode}' نامعتبر است (باید ۱۰ رقم عددی باشد)`);
+        } else if (seenNationalCodes.has(nationalCode)) {
+          errors.push(`کد ملی '${nationalCode}' در همین فایل تکرار شده است`);
+        } else {
+          const existingNational = await Member.exists({ nationalCode });
+          if (existingNational) {
+            errors.push(`کد ملی '${nationalCode}' قبلاً در سامانه برای عضو دیگری ثبت شده است`);
+          }
+        }
+      }
+
+      const isValid = errors.length === 0;
+      if (isValid) {
+        validCount++;
+        seenMemberCodes.add(memberCode);
+        if (nationalCode) {
+          seenNationalCodes.add(nationalCode);
+        }
+      } else {
+        errorCount++;
+      }
+
+      rows.push({
+        rowNumber: rowNum,
+        isValid,
+        memberCode,
+        fullName,
+        firstName,
+        lastName,
+        nationalCode,
+        mobilePhone,
+        email,
+        membershipDate: rawMembershipDate ? String(rawMembershipDate) : undefined,
+        expiryDate: rawExpiryDate ? String(rawExpiryDate) : undefined,
+        errors,
+      });
+    }
+
+    return {
+      summary: {
+        totalRows: totalProcessed,
+        validCount,
+        errorCount,
+      },
+      rows,
+    };
   }
 
   // Executes import based on user-confirmed mapping and fixed data

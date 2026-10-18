@@ -2,6 +2,10 @@ import { MemberRepository } from '../repositories/member.repository';
 import { IMember } from '../interfaces/member.interface';
 import { IMemberAddress } from '../interfaces/member-address.interface';
 import { IMemberTelephone } from '../interfaces/member-telephone.interface';
+import {
+  IAcademicQualification,
+  QualificationVerificationStatus,
+} from '../../lookup/interfaces/academic-qualification.interface';
 import { ApiError } from '../../../common/utils/api-error';
 import { FilterQuery, Types } from 'mongoose';
 
@@ -166,5 +170,126 @@ export class MemberService {
       throw ApiError.notFound(`Telephone with ID '${telephoneId}' not found for member '${memberId}'`);
     }
     return deleted;
+  }
+
+  // --- Member Academic Qualification Methods ---
+  async getMemberAcademicQualifications(memberId: string): Promise<IAcademicQualification[]> {
+    await this.getMemberById(memberId);
+    return await this.memberRepository.findQualificationsByMemberId(memberId);
+  }
+
+  async addMemberAcademicQualification(
+    memberId: string,
+    data: Partial<IAcademicQualification>,
+    adminId?: string
+  ): Promise<IAcademicQualification> {
+    const member = await this.getMemberById(memberId);
+    const created = await this.memberRepository.createQualification(
+      {
+        ...data,
+        memberId: new Types.ObjectId(memberId),
+      },
+      adminId
+    );
+
+    // If member has no latestAcademicQualifications set, link this one
+    if (!member.latestAcademicQualifications) {
+      await this.memberRepository.updateById(memberId, {
+        latestAcademicQualifications: created._id,
+      });
+    }
+
+    return created;
+  }
+
+  async updateMemberAcademicQualification(
+    memberId: string,
+    qualificationId: string,
+    data: Partial<IAcademicQualification>,
+    adminId?: string
+  ): Promise<IAcademicQualification> {
+    await this.getMemberById(memberId);
+    const updated = await this.memberRepository.updateQualification(
+      qualificationId,
+      memberId,
+      data,
+      adminId
+    );
+    if (!updated) {
+      throw ApiError.notFound(
+        `Academic qualification with ID '${qualificationId}' not found for member '${memberId}'`
+      );
+    }
+    return updated;
+  }
+
+  async deleteMemberAcademicQualification(
+    memberId: string,
+    qualificationId: string
+  ): Promise<IAcademicQualification> {
+    await this.getMemberById(memberId);
+    const deleted = await this.memberRepository.deleteQualification(qualificationId, memberId);
+    if (!deleted) {
+      throw ApiError.notFound(
+        `Academic qualification with ID '${qualificationId}' not found for member '${memberId}'`
+      );
+    }
+    return deleted;
+  }
+
+  async verifyMemberAcademicQualification(
+    memberId: string,
+    qualificationId: string,
+    status: QualificationVerificationStatus,
+    rejectionReason?: string,
+    adminId?: string,
+    comment?: string
+  ): Promise<IAcademicQualification> {
+    await this.getMemberById(memberId);
+    const item = await this.memberRepository.findQualificationById(qualificationId, memberId);
+    if (!item) {
+      throw ApiError.notFound(
+        `Academic qualification with ID '${qualificationId}' not found for member '${memberId}'`
+      );
+    }
+
+    if (!['PENDING', 'APPROVED', 'REJECTED'].includes(status)) {
+      throw ApiError.badRequest('Invalid verification status. Allowed: PENDING, APPROVED, REJECTED');
+    }
+
+    if (status === 'REJECTED' && (!rejectionReason || !rejectionReason.trim())) {
+      throw ApiError.badRequest('Rejection reason is required when status is REJECTED');
+    }
+
+    const fromStatus = item.verificationStatus;
+    const finalComment = comment?.trim() || (status === 'REJECTED' ? rejectionReason!.trim() : `Status changed to ${status}`);
+
+    item.verificationLogs.push({
+      fromStatus,
+      toStatus: status,
+      changedBy: adminId ? new Types.ObjectId(adminId) : null,
+      changedAt: new Date(),
+      comment: finalComment,
+    });
+
+    item.verificationStatus = status;
+    item.verifiedAt = status !== 'PENDING' ? new Date() : null;
+    if (adminId) {
+      item.verifiedBy = new Types.ObjectId(adminId);
+    }
+    if (status === 'REJECTED') {
+      item.rejectionReason = rejectionReason!.trim();
+    } else if (status === 'APPROVED') {
+      item.rejectionReason = '';
+    }
+
+    await item.save();
+
+    return await item.populate([
+      { path: 'academicField' },
+      { path: 'degreeLevel' },
+      { path: 'verifiedBy', select: 'username fullName type' },
+      { path: 'verificationLogs.changedBy', select: 'username fullName type' },
+    ]);
   }
 }

@@ -304,9 +304,11 @@ export class LookupController {
   };
 
   // --- Academic Qualifications ---
-  getAcademicQualifications = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
+  getAcademicQualifications = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const items = await this.lookupService.getAcademicQualifications();
+      const memberId = (req.query.memberId as string) || undefined;
+      const verificationStatus = (req.query.verificationStatus as string) || undefined;
+      const items = await this.lookupService.getAcademicQualifications({ memberId, verificationStatus });
       res.json(ApiResponse.success(items, 'Academic qualifications retrieved successfully'));
     } catch (error) {
       next(error);
@@ -325,7 +327,8 @@ export class LookupController {
 
   createAcademicQualification = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const item = await this.lookupService.createAcademicQualification(req.body);
+      const adminId = (req as any).admin?._id?.toString();
+      const item = await this.lookupService.createAcademicQualification(req.body, adminId);
       res.status(201).json(ApiResponse.created(item, 'Academic qualification created successfully'));
     } catch (error) {
       next(error);
@@ -335,7 +338,8 @@ export class LookupController {
   updateAcademicQualification = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const id = req.params.id as string;
-      const item = await this.lookupService.updateAcademicQualification(id, req.body);
+      const adminId = (req as any).admin?._id?.toString();
+      const item = await this.lookupService.updateAcademicQualification(id, req.body, adminId);
       res.json(ApiResponse.success(item, 'Academic qualification updated successfully'));
     } catch (error) {
       next(error);
@@ -347,6 +351,27 @@ export class LookupController {
       const id = req.params.id as string;
       const item = await this.lookupService.deleteAcademicQualification(id);
       res.json(ApiResponse.success(item, 'Academic qualification deleted successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  verifyAcademicQualification = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const id = req.params.id as string;
+      const { status, rejectionReason, comment } = req.body;
+      const adminId = (req as any).admin?._id?.toString();
+
+      const item = await this.lookupService.verifyAcademicQualification(
+        id,
+        status,
+        rejectionReason,
+        adminId,
+        comment
+      );
+      res.json(
+        ApiResponse.success(item, 'Academic qualification verification status updated successfully')
+      );
     } catch (error) {
       next(error);
     }

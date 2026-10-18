@@ -1,4 +1,4 @@
-import { Model, Document, UpdateQuery } from 'mongoose';
+import { Model, Document, Types, UpdateQuery } from 'mongoose';
 import {
   MembershipType,
   Specialization,
@@ -22,6 +22,7 @@ import {
   IAddressType,
   IProvince,
   ICity,
+  QualificationVerificationStatus,
 } from '../interfaces';
 import { ApiError } from '../../../common/utils/api-error';
 
@@ -170,37 +171,188 @@ export class LookupService {
   }
 
   // --- Academic Qualifications ---
-  async getAcademicQualifications(): Promise<IAcademicQualification[]> {
-    return await AcademicQualification.find()
+  async getAcademicQualifications(
+    filter: { memberId?: string; verificationStatus?: string } = {}
+  ): Promise<IAcademicQualification[]> {
+    const query: Record<string, any> = {};
+    if (filter.memberId) query.memberId = filter.memberId;
+    if (filter.verificationStatus) query.verificationStatus = filter.verificationStatus;
+
+    return await AcademicQualification.find(query)
       .populate('academicField')
       .populate('degreeLevel')
-      .sort({ title: 1 });
+      .populate('verifiedBy', 'username fullName type')
+      .populate('verificationLogs.changedBy', 'username fullName type')
+      .sort({ createdAt: -1 });
   }
+
   async getAcademicQualificationById(id: string): Promise<IAcademicQualification> {
     const item = await AcademicQualification.findById(id)
       .populate('academicField')
-      .populate('degreeLevel');
+      .populate('degreeLevel')
+      .populate('verifiedBy', 'username fullName type')
+      .populate('verificationLogs.changedBy', 'username fullName type');
     if (!item) {
       throw ApiError.notFound(`Academic qualification with ID '${id}' was not found`);
     }
     return item;
   }
-  async createAcademicQualification(data: Partial<IAcademicQualification>): Promise<IAcademicQualification> {
-    const created = await AcademicQualification.create(data);
-    return (await created.populate('academicField')).populate('degreeLevel');
+
+  async createAcademicQualification(
+    data: Partial<IAcademicQualification>,
+    adminId?: string
+  ): Promise<IAcademicQualification> {
+    const initialStatus: QualificationVerificationStatus = data.verificationStatus || 'PENDING';
+    if (initialStatus === 'REJECTED' && (!data.rejectionReason || !data.rejectionReason.trim())) {
+      throw ApiError.badRequest('Rejection reason is required when status is REJECTED');
+    }
+
+    const payload: Partial<IAcademicQualification> = {
+      ...data,
+      verificationStatus: initialStatus,
+    };
+
+    if (adminId && initialStatus !== 'PENDING') {
+      payload.verifiedBy = new Types.ObjectId(adminId);
+      payload.verifiedAt = new Date();
+    }
+
+    const initialComment = initialStatus === 'REJECTED'
+      ? (data.rejectionReason?.trim() || 'Initial registration - Rejected')
+      : (initialStatus === 'APPROVED'
+        ? 'Initial registration - Approved'
+        : 'Initial registration - Pending expert verification');
+
+    payload.verificationLogs = [
+      {
+        toStatus: initialStatus,
+        changedBy: adminId ? new Types.ObjectId(adminId) : null,
+        changedAt: new Date(),
+        comment: initialComment,
+      },
+    ];
+
+    const created = new AcademicQualification(payload);
+    await created.save();
+
+    return await created.populate([
+      { path: 'academicField' },
+      { path: 'degreeLevel' },
+      { path: 'verifiedBy', select: 'username fullName type' },
+      { path: 'verificationLogs.changedBy', select: 'username fullName type' },
+    ]);
   }
-  async updateAcademicQualification(id: string, data: Partial<IAcademicQualification>): Promise<IAcademicQualification> {
-    const updated = await AcademicQualification.findByIdAndUpdate(id, data, {
-      new: true,
-      runValidators: true,
-    })
-      .populate('academicField')
-      .populate('degreeLevel');
-    if (!updated) {
+
+  async updateAcademicQualification(
+    id: string,
+    data: Partial<IAcademicQualification>,
+    adminId?: string
+  ): Promise<IAcademicQualification> {
+    const item = await AcademicQualification.findById(id);
+    if (!item) {
       throw ApiError.notFound(`Academic qualification with ID '${id}' was not found`);
     }
-    return updated;
+
+    const previousStatus = item.verificationStatus;
+    const isStatusChanging = data.verificationStatus && data.verificationStatus !== previousStatus;
+
+    if (isStatusChanging) {
+      if (data.verificationStatus === 'REJECTED' && !data.rejectionReason?.trim() && !item.rejectionReason?.trim()) {
+        throw ApiError.badRequest('Rejection reason is required when status is REJECTED');
+      }
+
+      const toStatus = data.verificationStatus as QualificationVerificationStatus;
+      const logComment = toStatus === 'REJECTED'
+        ? (data.rejectionReason?.trim() || item.rejectionReason || 'Qualification rejected')
+        : (toStatus === 'APPROVED' ? 'Qualification approved' : 'Status reverted to pending');
+
+      item.verificationLogs.push({
+        fromStatus: previousStatus,
+        toStatus,
+        changedBy: adminId ? new Types.ObjectId(adminId) : null,
+        changedAt: new Date(),
+        comment: logComment,
+      });
+
+      item.verificationStatus = toStatus;
+      item.verifiedAt = toStatus !== 'PENDING' ? new Date() : null;
+      if (adminId) {
+        item.verifiedBy = new Types.ObjectId(adminId);
+      }
+      if (toStatus === 'REJECTED') {
+        item.rejectionReason = (data.rejectionReason || item.rejectionReason || '').trim();
+      } else if (toStatus === 'APPROVED') {
+        item.rejectionReason = '';
+      }
+    } else if (data.rejectionReason !== undefined) {
+      item.rejectionReason = data.rejectionReason.trim();
+    }
+
+    const { verificationStatus, verifiedBy, verifiedAt, verificationLogs, ...otherFields } = data as any;
+    Object.assign(item, otherFields);
+
+    await item.save();
+
+    return await item.populate([
+      { path: 'academicField' },
+      { path: 'degreeLevel' },
+      { path: 'verifiedBy', select: 'username fullName type' },
+      { path: 'verificationLogs.changedBy', select: 'username fullName type' },
+    ]);
   }
+
+  async verifyAcademicQualification(
+    id: string,
+    status: QualificationVerificationStatus,
+    rejectionReason?: string,
+    adminId?: string,
+    comment?: string
+  ): Promise<IAcademicQualification> {
+    if (!['PENDING', 'APPROVED', 'REJECTED'].includes(status)) {
+      throw ApiError.badRequest('Invalid verification status. Allowed: PENDING, APPROVED, REJECTED');
+    }
+
+    if (status === 'REJECTED' && (!rejectionReason || !rejectionReason.trim())) {
+      throw ApiError.badRequest('Rejection reason is required when status is REJECTED');
+    }
+
+    const item = await AcademicQualification.findById(id);
+    if (!item) {
+      throw ApiError.notFound(`Academic qualification with ID '${id}' was not found`);
+    }
+
+    const fromStatus = item.verificationStatus;
+    const finalComment = comment?.trim() || (status === 'REJECTED' ? rejectionReason!.trim() : `Status changed to ${status}`);
+
+    item.verificationLogs.push({
+      fromStatus,
+      toStatus: status,
+      changedBy: adminId ? new Types.ObjectId(adminId) : null,
+      changedAt: new Date(),
+      comment: finalComment,
+    });
+
+    item.verificationStatus = status;
+    item.verifiedAt = status !== 'PENDING' ? new Date() : null;
+    if (adminId) {
+      item.verifiedBy = new Types.ObjectId(adminId);
+    }
+    if (status === 'REJECTED') {
+      item.rejectionReason = rejectionReason!.trim();
+    } else if (status === 'APPROVED') {
+      item.rejectionReason = '';
+    }
+
+    await item.save();
+
+    return await item.populate([
+      { path: 'academicField' },
+      { path: 'degreeLevel' },
+      { path: 'verifiedBy', select: 'username fullName type' },
+      { path: 'verificationLogs.changedBy', select: 'username fullName type' },
+    ]);
+  }
+
   async deleteAcademicQualification(id: string): Promise<IAcademicQualification> {
     return this.deleteFromModel(AcademicQualification, id, 'Academic qualification');
   }

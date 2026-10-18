@@ -16,6 +16,11 @@ router.post(
   memberImportController.preview
 );
 router.post(
+  '/import/validate',
+  accessControl('private', 'members:create'),
+  memberImportController.validate
+);
+router.post(
   '/import/confirm',
   accessControl('private', 'members:create'),
   memberImportController.confirm
@@ -39,5 +44,32 @@ router.get('/:id/telephones', accessControl('private', 'members:read'), memberCo
 router.post('/:id/telephones', accessControl('private', 'members:update'), memberController.addMemberTelephone);
 router.put('/:id/telephones/:telephoneId', accessControl('private', 'members:update'), memberController.updateMemberTelephone);
 router.delete('/:id/telephones/:telephoneId', accessControl('private', 'members:update'), memberController.deleteMemberTelephone);
+
+// --- Member Academic Qualification Sub-routes ---
+router.get(
+  '/:id/academic-qualifications',
+  accessControl('private', 'members:read'),
+  memberController.getMemberAcademicQualifications
+);
+router.post(
+  '/:id/academic-qualifications',
+  accessControl('private', 'members:update'),
+  memberController.addMemberAcademicQualification
+);
+router.put(
+  '/:id/academic-qualifications/:qualificationId',
+  accessControl('private', 'members:update'),
+  memberController.updateMemberAcademicQualification
+);
+router.delete(
+  '/:id/academic-qualifications/:qualificationId',
+  accessControl('private', 'members:update'),
+  memberController.deleteMemberAcademicQualification
+);
+router.patch(
+  '/:id/academic-qualifications/:qualificationId/verify',
+  accessControl('private', 'members:update'),
+  memberController.verifyMemberAcademicQualification
+);
 
 export const memberRoutes = router;

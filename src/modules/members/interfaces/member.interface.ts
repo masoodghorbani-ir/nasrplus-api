@@ -42,5 +42,6 @@ export interface IMember extends Document {
   // --- Virtual Populated Fields ---
   addresses?: IMemberAddress[];
   telephones?: IMemberTelephone[];
+  academicQualifications?: IAcademicQualification[];
   readonly fullName: string;
 }

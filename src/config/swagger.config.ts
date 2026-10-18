@@ -22,6 +22,7 @@ export const swaggerDocument = {
     { name: 'Members', description: 'Core guild member registration, lifecycle, query, and profile management' },
     { name: 'Member Addresses', description: 'Postal address management for individual and corporate members' },
     { name: 'Member Telephones', description: 'Contact phone numbers, mobile, and telecommunication lines' },
+    { name: 'Member Academic Qualifications', description: 'Academic degrees and qualifications of members with verification workflows and audit logs' },
     { name: 'Companies', description: 'Corporate entity profiles and organizational affiliations' },
     { name: 'Lookups - Membership Types', description: 'Classifications: Individual, Legal Entity, Store, Honorary' },
     { name: 'Lookups - Specializations', description: 'Guild technical branches (Software, Hardware, Network, etc.)' },
@@ -219,6 +220,28 @@ export const swaggerDocument = {
             content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponseImportPreview' } } },
           },
           400: { description: 'Invalid file format or corrupt spreadsheet' },
+        },
+      },
+    },
+    '/api/v1/members/import/validate': {
+      post: {
+        tags: ['Members'],
+        summary: 'Validate member import rows before final confirmation',
+        description: 'Validates all rows from uploaded Excel spreadsheet against database rules and column mappings without writing to database.',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ImportConfirmInput' },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: 'Validation completed successfully',
+          },
+          400: { description: 'Invalid mapping or reference data' },
+          404: { description: 'Temporary file session expired or not found' },
         },
       },
     },
@@ -502,6 +525,131 @@ export const swaggerDocument = {
         responses: {
           200: { description: 'Telephone deleted successfully' },
           404: { description: 'Telephone not found' },
+        },
+      },
+    },
+
+    // -------------------------------------------------------------
+    // MEMBER ACADEMIC QUALIFICATION SUB-ROUTES
+    // -------------------------------------------------------------
+    '/api/v1/members/{id}/academic-qualifications': {
+      get: {
+        tags: ['Member Academic Qualifications'],
+        summary: 'Get all academic qualifications for a member',
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' }, description: 'Member ID' },
+        ],
+        responses: {
+          200: {
+            description: 'Member academic qualifications retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: { type: 'array', items: { $ref: '#/components/schemas/AcademicQualification' } },
+                  },
+                },
+              },
+            },
+          },
+          404: { description: 'Member not found' },
+        },
+      },
+      post: {
+        tags: ['Member Academic Qualifications'],
+        summary: 'Add an academic qualification for a member',
+        description: 'Enters a new academic qualification for the member. Defaults status to PENDING (pending expert verification) and creates initial audit log entry.',
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' }, description: 'Member ID' },
+        ],
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/CreateAcademicQualificationInput' } } },
+        },
+        responses: {
+          201: {
+            description: 'Academic qualification created successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: { $ref: '#/components/schemas/AcademicQualification' },
+                  },
+                },
+              },
+            },
+          },
+          400: { description: 'Bad request: Validation error or missing rejection reason' },
+          404: { description: 'Member not found' },
+        },
+      },
+    },
+    '/api/v1/members/{id}/academic-qualifications/{qualificationId}': {
+      put: {
+        tags: ['Member Academic Qualifications'],
+        summary: 'Update a member academic qualification',
+        description: 'Updates qualification details. Status transitions are automatically tracked and logged.',
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' }, description: 'Member ID' },
+          { name: 'qualificationId', in: 'path', required: true, schema: { type: 'string' }, description: 'Qualification ID' },
+        ],
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/CreateAcademicQualificationInput' } } },
+        },
+        responses: {
+          200: { description: 'Qualification updated successfully' },
+          400: { description: 'Bad request' },
+          404: { description: 'Qualification or member not found' },
+        },
+      },
+      delete: {
+        tags: ['Member Academic Qualifications'],
+        summary: 'Delete a member academic qualification',
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' }, description: 'Member ID' },
+          { name: 'qualificationId', in: 'path', required: true, schema: { type: 'string' }, description: 'Qualification ID' },
+        ],
+        responses: {
+          200: { description: 'Qualification deleted successfully' },
+          404: { description: 'Qualification or member not found' },
+        },
+      },
+    },
+    '/api/v1/members/{id}/academic-qualifications/{qualificationId}/verify': {
+      patch: {
+        tags: ['Member Academic Qualifications'],
+        summary: 'Verify or reject a member academic qualification',
+        description: 'Sets status to APPROVED or REJECTED. When REJECTED, rejectionReason is required. Every status change is logged into verificationLogs with the performing admin ID and timestamp.',
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' }, description: 'Member ID' },
+          { name: 'qualificationId', in: 'path', required: true, schema: { type: 'string' }, description: 'Qualification ID' },
+        ],
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/VerifyQualificationInput' } } },
+        },
+        responses: {
+          200: {
+            description: 'Verification status updated and logged successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: { $ref: '#/components/schemas/AcademicQualification' },
+                  },
+                },
+              },
+            },
+          },
+          400: { description: 'Bad request: Invalid status or missing rejectionReason when rejected' },
+          404: { description: 'Qualification or member not found' },
         },
       },
     },
@@ -880,6 +1028,10 @@ export const swaggerDocument = {
       get: {
         tags: ['Lookups - Academic Qualifications'],
         summary: 'Get all academic qualifications',
+        parameters: [
+          { name: 'memberId', in: 'query', schema: { type: 'string' }, description: 'Filter by associated Member ID' },
+          { name: 'verificationStatus', in: 'query', schema: { type: 'string', enum: ['PENDING', 'APPROVED', 'REJECTED'] }, description: 'Filter by verification status' },
+        ],
         responses: { 200: { description: 'List of academic qualifications with populated academicField and degreeLevel' } },
       },
       post: {
@@ -889,17 +1041,7 @@ export const swaggerDocument = {
           required: true,
           content: {
             'application/json': {
-              schema: {
-                type: 'object',
-                required: ['title', 'academicField', 'degreeLevel'],
-                properties: {
-                  title: { type: 'string', example: 'Master of Science in Software Engineering' },
-                  academicField: { type: 'string', example: '67093bc2f9821a0012345674' },
-                  degreeLevel: { type: 'string', description: 'Reference ID to DegreeLevel', example: '67093bc2f9821a0012345675' },
-                  institution: { type: 'string', example: 'University of Tehran' },
-                  graduationYear: { type: 'integer', example: 2020 },
-                },
-              },
+              schema: { $ref: '#/components/schemas/CreateAcademicQualificationInput' },
             },
           },
         },
@@ -919,6 +1061,17 @@ export const swaggerDocument = {
         parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
         requestBody: { required: true, content: { 'application/json': { schema: { type: 'object' } } } },
         responses: { 200: { description: 'Updated' }, 404: { description: 'Not found' } },
+      },
+      patch: {
+        tags: ['Lookups - Academic Qualifications'],
+        summary: 'Verify or reject academic qualification',
+        description: 'Updates verification status to APPROVED or REJECTED with rejection reason if rejected. Status changes are automatically logged.',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/VerifyQualificationInput' } } },
+        },
+        responses: { 200: { description: 'Verification status updated successfully' }, 404: { description: 'Not found' } },
       },
       delete: {
         tags: ['Lookups - Academic Qualifications'],
@@ -960,6 +1113,7 @@ export const swaggerDocument = {
           expiryDate: { type: 'string', format: 'date-time' },
           addresses: { type: 'array', items: { $ref: '#/components/schemas/MemberAddress' } },
           telephones: { type: 'array', items: { $ref: '#/components/schemas/MemberTelephone' } },
+          academicQualifications: { type: 'array', items: { $ref: '#/components/schemas/AcademicQualification' } },
           createdAt: { type: 'string', format: 'date-time' },
           updatedAt: { type: 'string', format: 'date-time' },
         },
@@ -1258,6 +1412,120 @@ export const swaggerDocument = {
                 },
               },
             },
+          },
+        },
+      },
+      QualificationVerificationLog: {
+        type: 'object',
+        properties: {
+          _id: { type: 'string' },
+          fromStatus: { type: 'string', enum: ['PENDING', 'APPROVED', 'REJECTED'] },
+          toStatus: { type: 'string', enum: ['PENDING', 'APPROVED', 'REJECTED'] },
+          changedBy: {
+            type: 'object',
+            properties: {
+              _id: { type: 'string' },
+              username: { type: 'string' },
+              fullName: { type: 'string' },
+            },
+          },
+          changedAt: { type: 'string', format: 'date-time' },
+          comment: { type: 'string', example: 'Status changed to APPROVED after verification' },
+        },
+      },
+      AcademicQualification: {
+        type: 'object',
+        properties: {
+          _id: { type: 'string' },
+          title: { type: 'string', example: 'Bachelor of Software Engineering' },
+          academicField: {
+            type: 'string',
+            description: 'Reference ID or object to AcademicField',
+            example: '67093bc2f9821a0012345674',
+          },
+          degreeLevel: {
+            type: 'string',
+            description: 'Reference ID or object to DegreeLevel',
+            example: '67093bc2f9821a0012345675',
+          },
+          institution: { type: 'string', example: 'University of Tehran' },
+          city: { type: 'string', example: 'Tehran' },
+          startYear: { type: 'integer', example: 1395 },
+          graduationYear: { type: 'integer', example: 1399 },
+          gpa: { type: 'number', example: 18.5 },
+          description: { type: 'string', example: 'Specialized in Software Architecture' },
+          memberId: { type: 'string', description: 'Associated Member ID' },
+          verificationStatus: {
+            type: 'string',
+            enum: ['PENDING', 'APPROVED', 'REJECTED'],
+            example: 'PENDING',
+            description: 'Verification status: PENDING (default upon entry), APPROVED, or REJECTED',
+          },
+          verifiedBy: {
+            type: 'object',
+            properties: {
+              _id: { type: 'string' },
+              username: { type: 'string' },
+              fullName: { type: 'string' },
+            },
+            description: 'Admin or expert who verified or rejected the qualification',
+          },
+          verifiedAt: { type: 'string', format: 'date-time' },
+          rejectionReason: { type: 'string', example: 'Certificate scan unclear or unverified' },
+          verificationLogs: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/QualificationVerificationLog' },
+            description: 'Audit history of verification status transitions',
+          },
+          isActive: { type: 'boolean', default: true },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      CreateAcademicQualificationInput: {
+        type: 'object',
+        required: ['title', 'academicField', 'degreeLevel'],
+        properties: {
+          title: { type: 'string', example: 'Bachelor of Software Engineering' },
+          academicField: { type: 'string', example: '67093bc2f9821a0012345674' },
+          degreeLevel: { type: 'string', example: '67093bc2f9821a0012345675' },
+          institution: { type: 'string', example: 'University of Tehran' },
+          city: { type: 'string', example: 'Tehran' },
+          startYear: { type: 'integer', example: 1395 },
+          graduationYear: { type: 'integer', example: 1399 },
+          gpa: { type: 'number', example: 18.5 },
+          description: { type: 'string', example: 'Specialized in Software Architecture' },
+          verificationStatus: {
+            type: 'string',
+            enum: ['PENDING', 'APPROVED', 'REJECTED'],
+            default: 'PENDING',
+            description: 'Verification status defaults to PENDING',
+          },
+          rejectionReason: {
+            type: 'string',
+            description: 'Required when verificationStatus is REJECTED',
+          },
+        },
+      },
+      VerifyQualificationInput: {
+        type: 'object',
+        required: ['status'],
+        properties: {
+          status: {
+            type: 'string',
+            enum: ['PENDING', 'APPROVED', 'REJECTED'],
+            example: 'APPROVED',
+            description: 'Target verification status',
+          },
+          rejectionReason: {
+            type: 'string',
+            example: 'Uploaded degree certificate is not accredited or readable',
+            description: 'Required if status is REJECTED',
+          },
+          comment: {
+            type: 'string',
+            example: 'Degree verified via ministry inquiry service',
+            description: 'Optional reviewer remarks or notes for audit log',
           },
         },
       },

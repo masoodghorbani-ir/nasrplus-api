@@ -131,7 +131,7 @@ const memberSchema = new Schema<IMember>(
 );
 
 // -------------------------------------------------------------
-// Virtual Populates for Member Addresses and Contact Telephones
+// Virtual Populates for Member Addresses, Telephones, and Qualifications
 // -------------------------------------------------------------
 memberSchema.virtual('addresses', {
   ref: 'MemberAddress',
@@ -143,6 +143,12 @@ memberSchema.virtual('telephones', {
   ref: 'MemberTelephone',
   localField: '_id',
   foreignField: 'membershipId',
+});
+
+memberSchema.virtual('academicQualifications', {
+  ref: 'AcademicQualification',
+  localField: '_id',
+  foreignField: 'memberId',
 });
 
 // Full name computed virtual

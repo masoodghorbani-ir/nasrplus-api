@@ -1,10 +1,16 @@
-import { FilterQuery, UpdateQuery } from 'mongoose';
+import { FilterQuery, Types, UpdateQuery } from 'mongoose';
 import { Member } from '../models/member.model';
 import { MemberAddress } from '../models/member-address.model';
 import { MemberTelephone } from '../models/member-telephone.model';
+import { AcademicQualification } from '../../lookup/models/academic-qualification.model';
 import { IMember } from '../interfaces/member.interface';
 import { IMemberAddress } from '../interfaces/member-address.interface';
 import { IMemberTelephone } from '../interfaces/member-telephone.interface';
+import {
+  IAcademicQualification,
+  QualificationVerificationStatus,
+} from '../../lookup/interfaces/academic-qualification.interface';
+import { ApiError } from '../../../common/utils/api-error';
 
 export class MemberRepository {
   // --- Member Operations ---
@@ -23,6 +29,16 @@ export class MemberRepository {
         populate: [
           { path: 'academicField' },
           { path: 'degreeLevel' },
+          { path: 'verifiedBy', select: 'username fullName type' },
+        ],
+      })
+      .populate({
+        path: 'academicQualifications',
+        populate: [
+          { path: 'academicField' },
+          { path: 'degreeLevel' },
+          { path: 'verifiedBy', select: 'username fullName type' },
+          { path: 'verificationLogs.changedBy', select: 'username fullName type' },
         ],
       })
       .populate('companyInformation')
@@ -43,6 +59,14 @@ export class MemberRepository {
       .populate('specializationId')
       .populate('rankId')
       .populate('natureOfMembership')
+      .populate({
+        path: 'latestAcademicQualifications',
+        populate: [
+          { path: 'academicField' },
+          { path: 'degreeLevel' },
+          { path: 'verifiedBy', select: 'username fullName type' },
+        ],
+      })
       .skip(skip)
       .limit(limit)
       .sort({ createdAt: -1 });
@@ -57,10 +81,11 @@ export class MemberRepository {
   }
 
   async deleteById(id: string): Promise<IMember | null> {
-    // Delete associated addresses and telephones when member is deleted
+    // Delete associated addresses, telephones, and qualifications when member is deleted
     await Promise.all([
       MemberAddress.deleteMany({ membershipId: id }),
       MemberTelephone.deleteMany({ membershipId: id }),
+      AcademicQualification.deleteMany({ memberId: id }),
     ]);
     return await Member.findByIdAndDelete(id);
   }
@@ -141,5 +166,139 @@ export class MemberRepository {
 
   async deleteTelephone(telephoneId: string, membershipId: string): Promise<IMemberTelephone | null> {
     return await MemberTelephone.findOneAndDelete({ _id: telephoneId, membershipId });
+  }
+
+  // --- Member Academic Qualification Operations ---
+  async findQualificationsByMemberId(memberId: string): Promise<IAcademicQualification[]> {
+    return await AcademicQualification.find({ memberId })
+      .populate('academicField')
+      .populate('degreeLevel')
+      .populate('verifiedBy', 'username fullName type')
+      .populate('verificationLogs.changedBy', 'username fullName type')
+      .sort({ createdAt: -1 });
+  }
+
+  async findQualificationById(qualificationId: string, memberId: string): Promise<IAcademicQualification | null> {
+    return await AcademicQualification.findOne({ _id: qualificationId, memberId })
+      .populate('academicField')
+      .populate('degreeLevel')
+      .populate('verifiedBy', 'username fullName type')
+      .populate('verificationLogs.changedBy', 'username fullName type');
+  }
+
+  async createQualification(
+    data: Partial<IAcademicQualification>,
+    adminId?: string
+  ): Promise<IAcademicQualification> {
+    const initialStatus: QualificationVerificationStatus = data.verificationStatus || 'PENDING';
+    if (initialStatus === 'REJECTED' && (!data.rejectionReason || !data.rejectionReason.trim())) {
+      throw ApiError.badRequest('Rejection reason is required when status is REJECTED');
+    }
+
+    const payload: Partial<IAcademicQualification> = {
+      ...data,
+      verificationStatus: initialStatus,
+    };
+
+    if (adminId && initialStatus !== 'PENDING') {
+      payload.verifiedBy = new Types.ObjectId(adminId);
+      payload.verifiedAt = new Date();
+    }
+
+    const initialComment = initialStatus === 'REJECTED'
+      ? (data.rejectionReason?.trim() || 'Initial registration - Rejected')
+      : (initialStatus === 'APPROVED'
+        ? 'Initial registration - Approved'
+        : 'Initial registration - Pending expert verification');
+
+    payload.verificationLogs = [
+      {
+        toStatus: initialStatus,
+        changedBy: adminId ? new Types.ObjectId(adminId) : null,
+        changedAt: new Date(),
+        comment: initialComment,
+      },
+    ];
+
+    const created = new AcademicQualification(payload);
+    await created.save();
+
+    return await created.populate([
+      { path: 'academicField' },
+      { path: 'degreeLevel' },
+      { path: 'verifiedBy', select: 'username fullName type' },
+      { path: 'verificationLogs.changedBy', select: 'username fullName type' },
+    ]);
+  }
+
+  async updateQualification(
+    qualificationId: string,
+    memberId: string,
+    data: Partial<IAcademicQualification>,
+    adminId?: string
+  ): Promise<IAcademicQualification | null> {
+    const item = await AcademicQualification.findOne({ _id: qualificationId, memberId });
+    if (!item) {
+      return null;
+    }
+
+    const previousStatus = item.verificationStatus;
+    const isStatusChanging = data.verificationStatus && data.verificationStatus !== previousStatus;
+
+    if (isStatusChanging) {
+      if (data.verificationStatus === 'REJECTED' && !data.rejectionReason?.trim() && !item.rejectionReason?.trim()) {
+        throw ApiError.badRequest('Rejection reason is required when status is REJECTED');
+      }
+
+      const toStatus = data.verificationStatus as QualificationVerificationStatus;
+      const logComment = toStatus === 'REJECTED'
+        ? (data.rejectionReason?.trim() || item.rejectionReason || 'Qualification rejected')
+        : (toStatus === 'APPROVED' ? 'Qualification approved' : 'Status reverted to pending');
+
+      item.verificationLogs.push({
+        fromStatus: previousStatus,
+        toStatus,
+        changedBy: adminId ? new Types.ObjectId(adminId) : null,
+        changedAt: new Date(),
+        comment: logComment,
+      });
+
+      item.verificationStatus = toStatus;
+      item.verifiedAt = toStatus !== 'PENDING' ? new Date() : null;
+      if (adminId) {
+        item.verifiedBy = new Types.ObjectId(adminId);
+      }
+      if (toStatus === 'REJECTED') {
+        item.rejectionReason = (data.rejectionReason || item.rejectionReason || '').trim();
+      } else if (toStatus === 'APPROVED') {
+        item.rejectionReason = '';
+      }
+    } else if (data.rejectionReason !== undefined) {
+      item.rejectionReason = data.rejectionReason.trim();
+    }
+
+    const { verificationStatus, verifiedBy, verifiedAt, verificationLogs, ...otherFields } = data as any;
+    Object.assign(item, otherFields);
+
+    await item.save();
+
+    return await item.populate([
+      { path: 'academicField' },
+      { path: 'degreeLevel' },
+      { path: 'verifiedBy', select: 'username fullName type' },
+      { path: 'verificationLogs.changedBy', select: 'username fullName type' },
+    ]);
+  }
+
+  async deleteQualification(qualificationId: string, memberId: string): Promise<IAcademicQualification | null> {
+    const deleted = await AcademicQualification.findOneAndDelete({ _id: qualificationId, memberId });
+    if (deleted) {
+      // Clear latestAcademicQualifications if it pointed to this qualification
+      await Member.updateOne(
+        { _id: memberId, latestAcademicQualifications: qualificationId },
+        { $unset: { latestAcademicQualifications: 1 } }
+      );
+    }
+    return deleted;
   }
 }

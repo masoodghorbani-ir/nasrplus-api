@@ -52,6 +52,7 @@ router.get('/academic-qualifications', accessControl('public'), controller.getAc
 router.post('/academic-qualifications', accessControl('private', 'lookups:manage'), controller.createAcademicQualification);
 router.get('/academic-qualifications/:id', accessControl('public'), controller.getAcademicQualificationById);
 router.put('/academic-qualifications/:id', accessControl('private', 'lookups:manage'), controller.updateAcademicQualification);
+router.patch('/academic-qualifications/:id/verify', accessControl('private', 'lookups:manage'), controller.verifyAcademicQualification);
 router.delete('/academic-qualifications/:id', accessControl('private', 'lookups:manage'), controller.deleteAcademicQualification);
 
 // --- Address Types ---

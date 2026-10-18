@@ -75,3 +75,30 @@ export interface IImportExecutionResult {
   failedRows: IImportRowError[];
   importedMembers: IImportedMemberSummary[];
 }
+
+// Individual row preview & validation item for Step 3
+export interface IImportValidateRow {
+  rowNumber: number;
+  isValid: boolean;
+  memberCode?: string;
+  fullName?: string;
+  firstName?: string;
+  lastName?: string;
+  nationalCode?: string;
+  mobilePhone?: string;
+  email?: string;
+  membershipDate?: string;
+  expiryDate?: string;
+  errors: string[];
+}
+
+// Result of Excel validation step
+export interface IImportValidationResult {
+  summary: {
+    totalRows: number;
+    validCount: number;
+    errorCount: number;
+  };
+  rows: IImportValidateRow[];
+}
+

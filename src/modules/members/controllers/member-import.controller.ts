@@ -27,6 +27,20 @@ export class MemberImportController {
     }
   };
 
+  // Validates member import rows and rules before confirmation
+  validate = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const dto: IImportConfirmDto = req.body;
+      const result = await this.memberImportService.validate(dto);
+
+      res.status(200).json(
+        ApiResponse.success(result, 'Members import validation completed successfully')
+      );
+    } catch (error) {
+      next(error);
+    }
+  };
+
   // Executes member import with user confirmed mapping and fixed values
   confirm = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {

@@ -1,0 +1,434 @@
+---
+description: Technical specification and UI implementation guidelines for Member Academic Qualifications & Verification Workflow in the Front-end
+globs: src/**/*.{ts,tsx,vue}
+---
+
+# Member Academic Qualifications & Verification UI Specification
+
+Technical documentation and UI/UX contract for implementing the Member Academic Qualifications management, Expert Verification Workflow, and Status Transition Audit Logs in the Admin Panel / Front-end application.
+
+---
+
+## 1. Overview & Business Workflow
+
+The Academic Qualifications feature allows recording higher education degrees of guild members, verifying them by authorized experts/admins, recording rejection reasons if unapproved, and tracking the complete audit history of all status changes.
+
+### 1.1 Qualification Lifecycle States
+```
+       [ Member / Admin Submits Degree ]
+                      │
+                      ▼
+             ┌─────────────────┐
+             │     PENDING     │ (Default: In review by expert)
+             └────────┬────────┘
+                      │
+           ┌──────────┴──────────┐
+           ▼                     ▼
+  ┌─────────────────┐   ┌─────────────────┐
+  │    APPROVED     │   │    REJECTED     │
+  │ (Degree Valid)  │   │(Reason Required)│
+  └────────┬────────┘   └────────┬────────┘
+           │                     │
+           └──────────┬──────────┘
+                      │ (Can be re-reviewed / reverted)
+                      ▼
+             ┌─────────────────┐
+             │ PENDING / RESET │
+             └─────────────────┘
+```
+
+1. **PENDING (در انتظار تائید کارشناس):**
+   - Default status automatically assigned when a degree is first created.
+   - Automatically logs initial creation in the audit trail.
+2. **APPROVED (تائید شده):**
+   - Set when an authorized expert/admin validates the degree certificate.
+   - Clears prior rejection reason; sets `verifiedAt` and `verifiedBy`.
+3. **REJECTED (رد شده):**
+   - Set when a qualification is rejected.
+   - **`rejectionReason` is strictly required**. The UI must enforce this input before submitting.
+4. **Audit History Log (`verificationLogs`):**
+   - Every status transition (Creation, Approval, Rejection, Reset) appends an immutable log record with:
+     - `fromStatus` & `toStatus`
+     - `changedBy` (Admin details: username, fullName)
+     - `changedAt` (Timestamp)
+     - `comment` / `rejectionReason`
+
+---
+
+## 2. API Endpoints Contract
+
+All endpoints expect `Authorization: Bearer <JWT>` header for private access.
+
+### 2.1 Lookups Endpoints (Dropdown Sources)
+- **Academic Fields (رشته‌های تحصیلی):**
+  - **URL:** `GET /api/v1/lookups/academic-fields`
+  - **Item Shape:** `{ _id: string, title: string, code?: string, isActive: boolean }`
+- **Degree Levels (مقاطع تحصیلی):**
+  - **URL:** `GET /api/v1/lookups/degree-levels`
+  - **Item Shape:** `{ _id: string, title: string, code?: string, rankOrder?: number, isActive: boolean }`
+- **Cities (شهرها - اختیاری):**
+  - **URL:** `GET /api/v1/lookups/cities`
+  - **Item Shape:** `{ _id: string, title: string, provinceId: string, code?: string }`
+
+---
+
+### 2.2 Member Qualifications Sub-routes
+
+#### A. Get All Qualifications of a Member
+- **URL:** `GET /api/v1/members/:id/academic-qualifications`
+- **Success Response (`200 OK`):**
+  ```json
+  {
+    "success": true,
+    "message": "Member academic qualifications retrieved successfully",
+    "data": [
+      {
+        "_id": "67104b2a1a89000012345678",
+        "memberId": "67093bc2f9821a0012345670",
+        "title": "کارشناسی مهندسی نرم‌افزار",
+        "academicField": {
+          "_id": "67093bc2f9821a0012345674",
+          "title": "مهندسی کامپیوتر"
+        },
+        "degreeLevel": {
+          "_id": "67093bc2f9821a0012345675",
+          "title": "کارشناسی"
+        },
+        "institution": "دانشگاه صنعتی شریف",
+        "city": "تهران",
+        "startYear": 1395,
+        "graduationYear": 1399,
+        "gpa": 17.85,
+        "description": "پروژه پایانی در زمینه سیستم‌های توزیع‌شده",
+        "verificationStatus": "PENDING",
+        "verifiedBy": null,
+        "verifiedAt": null,
+        "rejectionReason": "",
+        "verificationLogs": [
+          {
+            "_id": "67104b2a1a89000012345679",
+            "toStatus": "PENDING",
+            "changedBy": null,
+            "changedAt": "2026-10-18T08:15:00.000Z",
+            "comment": "Initial submission - Pending expert verification"
+          }
+        ],
+        "isActive": true,
+        "createdAt": "2026-10-18T08:15:00.000Z",
+        "updatedAt": "2026-10-18T08:15:00.000Z"
+      }
+    ]
+  }
+  ```
+
+#### B. Add Qualification for a Member
+- **URL:** `POST /api/v1/members/:id/academic-qualifications`
+- **Content-Type:** `application/json`
+- **Request Body:**
+  ```json
+  {
+    "title": "کارشناسی ارشد هوش مصنوعی",
+    "academicField": "67093bc2f9821a0012345674",
+    "degreeLevel": "67093bc2f9821a0012345675",
+    "institution": "دانشگاه تهران",
+    "city": "تهران",
+    "startYear": 1400,
+    "graduationYear": 1402,
+    "gpa": 18.25,
+    "description": "پایان‌نامه در زمینه پردازش زبان طبیعی"
+  }
+  ```
+- **Response (`201 Created`):** Returns the created qualification populated with lookups and initial `PENDING` log.
+
+#### C. Update Member Qualification Details
+- **URL:** `PUT /api/v1/members/:id/academic-qualifications/:qualificationId`
+- **Content-Type:** `application/json`
+- **Request Body:** Same properties as Create (Partial allowed).
+- **Response (`200 OK`):** Updated qualification object.
+
+#### D. Delete Member Qualification
+- **URL:** `DELETE /api/v1/members/:id/academic-qualifications/:qualificationId`
+- **Response (`200 OK`):** Deleted qualification object.
+
+#### E. Verify / Reject Member Qualification (Expert Action)
+- **URL:** `PATCH /api/v1/members/:id/academic-qualifications/:qualificationId/verify`
+- **Content-Type:** `application/json`
+
+**Case 1: Approval:**
+```json
+{
+  "status": "APPROVED",
+  "comment": "مدارک دانشنامه استعلام و تائید گردید"
+}
+```
+
+**Case 2: Rejection (rejectionReason is Required):**
+```json
+{
+  "status": "REJECTED",
+  "rejectionReason": "تصویر گواهی موقت منقضی شده است و دانشنامه اصلی ارائه نگردیده است",
+  "comment": "عدم تطابق شماره دانشنامه با سامانه وزارت علوم"
+}
+```
+
+**Success Response (`200 OK`):**
+```json
+{
+  "success": true,
+  "message": "Academic qualification verification status updated successfully",
+  "data": {
+    "_id": "67104b2a1a89000012345678",
+    "verificationStatus": "REJECTED",
+    "rejectionReason": "تصویر گواهی موقت منقضی شده است و دانشنامه اصلی ارائه نگردیده است",
+    "verifiedBy": {
+      "_id": "67093bc2f9821a0012345601",
+      "username": "expert_user",
+      "fullName": "کارشناس آموزش"
+    },
+    "verifiedAt": "2026-10-18T08:30:00.000Z",
+    "verificationLogs": [
+      {
+        "_id": "67104b2a1a89000012345679",
+        "toStatus": "PENDING",
+        "changedAt": "2026-10-18T08:15:00.000Z",
+        "comment": "Initial submission - Pending expert verification"
+      },
+      {
+        "_id": "67104b501a89000012345680",
+        "fromStatus": "PENDING",
+        "toStatus": "REJECTED",
+        "changedBy": {
+          "_id": "67093bc2f9821a0012345601",
+          "username": "expert_user",
+          "fullName": "کارشناس آموزش"
+        },
+        "changedAt": "2026-10-18T08:30:00.000Z",
+        "comment": "تصویر گواهی موقت منقضی شده است و دانشنامه اصلی ارائه نگردیده است"
+      }
+    ]
+  }
+}
+```
+
+**Error Response (`400 Bad Request`):**
+```json
+{
+  "success": false,
+  "message": "Rejection reason is required when status is REJECTED"
+}
+```
+
+---
+
+### 2.3 Global Qualifications Lookup & Verification (Expert Desk)
+- **Get All / Filtered Qualifications:**
+  `GET /api/v1/lookups/academic-qualifications?verificationStatus=PENDING&memberId=...`
+- **Direct Verify Endpoint:**
+  `PATCH /api/v1/lookups/academic-qualifications/:id/verify` (Payload matches the sub-route verify payload above).
+
+---
+
+## 3. TypeScript Interfaces
+
+Create or place these definitions in `src/types/academic-qualification.types.ts`:
+
+```typescript
+// Verification status enum
+export type QualificationVerificationStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+// Operator summary
+export interface IAdminSummary {
+  _id: string;
+  username: string;
+  fullName?: string;
+  type?: string;
+}
+
+// Single audit log record
+export interface IQualificationVerificationLog {
+  _id?: string;
+  fromStatus?: QualificationVerificationStatus;
+  toStatus: QualificationVerificationStatus;
+  changedBy?: IAdminSummary | string | null;
+  changedAt: string;
+  comment?: string;
+}
+
+// Related lookup references
+export interface IAcademicFieldSummary {
+  _id: string;
+  title: string;
+  code?: string;
+}
+
+export interface IDegreeLevelSummary {
+  _id: string;
+  title: string;
+  code?: string;
+  rankOrder?: number;
+}
+
+// Full Academic Qualification entity
+export interface IAcademicQualification {
+  _id: string;
+  memberId?: string;
+  title: string;
+  academicField: IAcademicFieldSummary | string;
+  degreeLevel: IDegreeLevelSummary | string;
+  institution?: string;
+  city?: string;
+  startYear?: number;
+  graduationYear?: number;
+  gpa?: number;
+  description?: string;
+  verificationStatus: QualificationVerificationStatus;
+  verifiedBy?: IAdminSummary | string | null;
+  verifiedAt?: string | null;
+  rejectionReason?: string;
+  verificationLogs: IQualificationVerificationLog[];
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Form payload for Create
+export interface ICreateAcademicQualificationPayload {
+  title: string;
+  academicField: string;
+  degreeLevel: string;
+  institution?: string;
+  city?: string;
+  startYear?: number;
+  graduationYear?: number;
+  gpa?: number;
+  description?: string;
+}
+
+// Form payload for Update
+export type IUpdateAcademicQualificationPayload = Partial<ICreateAcademicQualificationPayload>;
+
+// Payload for Verify / Reject modal
+export interface IVerifyQualificationPayload {
+  status: QualificationVerificationStatus;
+  rejectionReason?: string;
+  comment?: string;
+}
+```
+
+---
+
+## 4. UI/UX Component Specifications
+
+### 4.1 Component 1: Qualifications Tab in Member Profile (`MemberQualificationsTab`)
+Located in the Member Details View (e.g., `/members/:id` -> Tab "مدارک و سوابق تحصیلی").
+
+- **Header Section:**
+  - Tab title: `مدارک و تحصیلات دانشگاهی`
+  - Button: `ثبت مدرک تحصیلی جدید` (با آیکون `+`)
+- **Qualification Cards or Table:**
+  - **ستون‌ها / فیلدهای اصلی هر سطر:**
+    1. **عنوان و مقطع مدرک:** مقطع + عنوان (مثال: کارشناسی مهندسی نرم‌افزار)
+    2. **رشته تحصیلی:** عنوان رشته
+    3. **دانشگاه / موسسه:** نام دانشگاه و شهر (مثال: دانشگاه صنعتی شریف - تهران)
+    4. **سال‌های تحصیل:** سال شروع تا سال فراغت (مثال: ۱۳۹۵ - ۱۳۹۹)
+    5. **معدل:** نمایش عدد معدل (مثال: ۱۷.۸۵ از ۲۰)
+    6. **وضعیت تائید (Status Badge):**
+       - `PENDING`: نشان زرد/نارنجی با آیکون ساعت ⏳ `در انتظار تائید کارشناس`
+       - `APPROVED`: نشان سبز با آیکون تیک ✅ `تائید شده`
+       - `REJECTED`: نشان قرمز با آیکون اخطار ❌ `رد شده`
+    7. **عملیات (Actions):**
+       - **بررسی مدرک (Verify):** دکمه برای کارشناسان مجاز جهت باز کردن مودال تائید/رد.
+       - **تاریخچه تغییرات (Audit Logs):** دکمه جهت باز کردن مودال تایم‌لاین لاگ‌ها.
+       - **ویرایش (Edit):** ویرایش مشخصات مدرک.
+       - **حذف (Delete):** حذف مدرک با دیالوگ تائیدیه.
+- **جعبه هشدار در صورت رد مدرک (Rejection Alert Box):**
+  - اگر وضعیت مدرک `REJECTED` باشد، در کارت مربوطه یک بنر یا کادر هشدار قرمز روشن با عنوان **«علت رد مدرک: »** همراه با متن `rejectionReason` نمایش داده شود تا کاربر یا عضو فوراً دلیل رد را مشاهده کند.
+
+---
+
+### 4.2 Component 2: Qualification Create/Edit Modal (`QualificationFormModal`)
+
+- **فیلدهای فرم:**
+  | نام فیلد | نوع کامپوننت | الزامی / اختیاری | توضیحات / اعتبارسنجی |
+  | :--- | :--- | :--- | :--- |
+  | **عنوان مدرک** (`title`) | Text Input | **الزامی** | مثال: مهندسی نرم‌افزار |
+  | **مقطع تحصیلی** (`degreeLevel`) | Select Dropdown | **الزامی** | لود از `/api/v1/lookups/degree-levels` |
+  | **رشته تحصیلی** (`academicField`) | Select Dropdown | **الزامی** | لود از `/api/v1/lookups/academic-fields` |
+  | **دانشگاه / موسسه** (`institution`) | Text Input | اختیاری | مثال: دانشگاه صنعتی شریف |
+  | **شهر محل تحصیل** (`city`) | Text / Dropdown | اختیاری | مثال: تهران |
+  | **سال شروع تحصیل** (`startYear`) | Number Input | اختیاری | بازه مجاز: ۱۳۰۰ الی ۲۱۰۰ |
+  | **سال فراغت از تحصیل** (`graduationYear`) | Number Input | اختیاری | بازه مجاز: ۱۳۰۰ الی ۲۱۰۰ (بزرگتر یا مساوی سال شروع) |
+  | **معدل کل** (`gpa`) | Number (Float) | اختیاری | بازه مجاز: ۰ تا ۲۰ (با دقت ۲ رقم اعشار) |
+  | **توضیحات و عنوان پایان‌نامه** (`description`) | Textarea | اختیاری | یادداشت تکمیلی |
+
+- **نکته وضعیت:** در فرم ثبت مدرک نیازی به انتخاب وضعیت نیست؛ سرور به صورت پیش‌فرض وضعیت را روی `PENDING` قرار می‌دهد.
+
+---
+
+### 4.3 Component 3: Verification Modal (`VerifyQualificationModal`)
+
+این مودال توسط کارشناس آموزش / ارزیابی اتحادیه برای تعیین تکلیف مدرک باز می‌شود.
+
+- **بخش اطلاعات خلاصه مدرک:**
+  - نام عضو، عنوان مدرک، مقطع و دانشگاه در بالای مودال جهت مرور سریع.
+- **فیلد رادیویی انتخاب وضعیت (`status`):**
+  - گزینه ۱: **تائید مدرک (APPROVED)** (با استایل رنگ سبز)
+  - گزینه ۲: **رد مدرک (REJECTED)** (با استایل رنگ قرمز)
+  - گزینه ۳: **بازگردانی به در انتظار بررسی (PENDING)** (اختیاری جهت بررسی مجدد)
+- **فیلد شرطی «علت رد شدن مدرک» (`rejectionReason`):**
+  - **فقط هنگامی که کاربر `REJECTED` را انتخاب می‌کند فعال و اجباری می‌شود.**
+  - المان: `Textarea` چند خطی با عنوان: `علت و توضیحات رد مدرک *`.
+  - پیام خطای فرانت‌اند: `"در صورت رد مدرک، ثبت علت رد الزامی است."`
+- **فیلد یادداشت تکمیلی کارشناس (`comment`):**
+  - اختیاری جهت ثبت در لاگ سیستم (مثال: استعلام با کد رهگیری ...).
+- **دکمه‌های اقدام:**
+  - انصراف (`Cancel`)
+  - ثبت تصمیم کارشناسی (`Submit Decision`) - دکمه در حین ارسال درخواست به حالت `Loading` می‌رود.
+
+---
+
+### 4.4 Component 4: Status History Drawer / Modal (`VerificationLogsTimeline`)
+
+برای هر مدرک، کاربر با کلیک روی آیکون تاریخچه 📜 می‌تواند لاگ تمامی مراحل را ببیند.
+
+- **کامپوننت نمایش:** تایم‌لاین عمودی (Vertical Timeline).
+- **اطلاعات هر گره از تایم‌لاین (Timeline Item):**
+  - **وضعیت جدید:** بچ رنگی متناسب با وضعیت (`PENDING`، `APPROVED`، `REJECTED`).
+  - **وضعیت قبلی:** در صورت وجود: `تغییر از [وضعیت قبلی] به [وضعیت جدید]`.
+  - **کارشناس مسئول:** نام و نام‌خانوادگی / نام‌کاربری کارشناس (`changedBy.fullName || changedBy.username`).
+  - **زمان اقدام:** تبدیل تاریخ میلادی `changedAt` به تاریخ و ساعت شمسی خوانا (مثال: `۱۴۰۳/۰۴/۱۵ - ساعت ۱۱:۴۵`).
+  - **توضیحات یا علت رد:** در صورت وجود فیلد `comment`، داخل کادر نقل‌قول یا بالون نمایش داده شود.
+
+---
+
+### 4.5 Component 5: Central Verification Desk (کارتابل متمرکز بررسی مدارک اعضا)
+
+صفحه‌ای مستقل در منوی پنل مدیریت (مثلاً: `اعضا > کارتابل بررسی مدارک تحصیلی`).
+
+- **فیلترهای بالای جدول:**
+  - وضعیت تائید: Dropdown شامل `همه`، `در انتظار بررسی` (پیش‌فرض)، `تائید شده`، `رد شده`.
+  - مقطع تحصیلی: انتخاب از مقاطع.
+  - جستجو: نام عضو، کد عضویت یا عنوان مدرک.
+- **جدول:**
+  - فراخوانی از `GET /api/v1/lookups/academic-qualifications?verificationStatus=PENDING`.
+  - کلیک روی هر سطر، مشخصات عضو و مدرک را آورده و مودال تائید/رد را باز می‌کند.
+
+---
+
+## 5. UI Implementation Rules & UX Best Practices
+
+1. **Strict Rejection Reason Validation:**
+   - اگر کاربر `status === 'REJECTED'` را انتخاب کرد و فیلد `rejectionReason` را خالی گذاشت یا فقط فاصله تایپ کرد، دکمه تائید غیرفعال باشد و پیام خطا زیر فیلد نشان داده شود.
+2. **Badge Color Scheme:**
+   - `PENDING`: Warning (زرد / نارنجی / کهربایی) - `bg-amber-100 text-amber-800 border-amber-300`
+   - `APPROVED`: Success (سبز) - `bg-emerald-100 text-emerald-800 border-emerald-300`
+   - `REJECTED`: Destructive / Danger (قرمز) - `bg-rose-100 text-rose-800 border-rose-300`
+3. **Date Formatting:**
+   - تاریخ‌های `verifiedAt` و `changedAt` به فرمت تاریخ و ساعت شمسی نمایش داده شوند (مثال: `۱۴۰۳/۰۷/۲۴ ۱۲:۳۰`).
+   - فیلدهای `startYear` و `graduationYear` به صورت سال ۴ رقمی شمسی (مثال: `۱۴۰۱`) ورودی گرفته و نمایش داده شوند.
+4. **Member Full Profile Population:**
+   - متد `GET /api/v1/members/:id` فیلد مجازی `academicQualifications` را همراه با مدارک و لاگ‌های کامل بازمی‌گرداند؛ بنابراین هنگام لود صفحه جزئیات عضو، بدون نیاز به فراخوانی مکرر، مدارک عضو در دسترس است.
+5. **Toast Notifications:**
+   - پس از تائید مدرک: `مدرک تحصیلی با موفقیت تائید شد.` (Toast سبز).
+   - پس از رد مدرک: `مدرک تحصیلی رد شد و علت رد در پرونده ثبت گردید.` (Toast هشدار/قرمز).
+   - پس از ثبت مدرک جدید: `مدرک تحصیلی با موفقیت ثبت شد و در انتظار تائید کارشناس قرار گرفت.`

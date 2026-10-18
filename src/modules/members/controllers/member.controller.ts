@@ -167,4 +167,81 @@ export class MemberController {
       next(error);
     }
   };
+
+  // --- Member Academic Qualification Handlers ---
+  getMemberAcademicQualifications = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const memberId = req.params.id as string;
+      const items = await this.memberService.getMemberAcademicQualifications(memberId);
+      res.json(ApiResponse.success(items, 'Member academic qualifications retrieved successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  addMemberAcademicQualification = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const memberId = req.params.id as string;
+      const adminId = (req as any).admin?._id?.toString();
+      const qualification = await this.memberService.addMemberAcademicQualification(
+        memberId,
+        req.body,
+        adminId
+      );
+      res.status(201).json(ApiResponse.created(qualification, 'Academic qualification added successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  updateMemberAcademicQualification = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const memberId = req.params.id as string;
+      const qualificationId = req.params.qualificationId as string;
+      const adminId = (req as any).admin?._id?.toString();
+      const qualification = await this.memberService.updateMemberAcademicQualification(
+        memberId,
+        qualificationId,
+        req.body,
+        adminId
+      );
+      res.json(ApiResponse.success(qualification, 'Academic qualification updated successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  deleteMemberAcademicQualification = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const memberId = req.params.id as string;
+      const qualificationId = req.params.qualificationId as string;
+      const deleted = await this.memberService.deleteMemberAcademicQualification(memberId, qualificationId);
+      res.json(ApiResponse.success(deleted, 'Academic qualification deleted successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  verifyMemberAcademicQualification = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const memberId = req.params.id as string;
+      const qualificationId = req.params.qualificationId as string;
+      const { status, rejectionReason, comment } = req.body;
+      const adminId = (req as any).admin?._id?.toString();
+
+      const updated = await this.memberService.verifyMemberAcademicQualification(
+        memberId,
+        qualificationId,
+        status,
+        rejectionReason,
+        adminId,
+        comment
+      );
+      res.json(
+        ApiResponse.success(updated, 'Academic qualification verification status updated successfully')
+      );
+    } catch (error) {
+      next(error);
+    }
+  };
 }

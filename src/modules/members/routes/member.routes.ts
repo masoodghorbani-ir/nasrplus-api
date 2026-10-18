@@ -1,12 +1,15 @@
 import { Router } from 'express';
 import { MemberController } from '../controllers/member.controller';
 import { MemberImportController } from '../controllers/member-import.controller';
-import { accessControl } from '../../../common/middlewares/access-control.middleware';
+import { accessControl, publicRoute } from '../../../common/middlewares/access-control.middleware';
 import { excelUpload, memberPhotoUpload, memberCertificateUpload } from '../../../common/middlewares/upload.middleware';
 
 const router = Router();
 const memberController = new MemberController();
 const memberImportController = new MemberImportController();
+
+// --- Member Portal Public Auth ---
+router.post('/portal/login', publicRoute(), memberController.portalLogin);
 
 // --- Excel Import Routes ---
 router.post(

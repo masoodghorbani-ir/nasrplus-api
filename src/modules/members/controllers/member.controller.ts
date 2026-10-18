@@ -439,4 +439,15 @@ export class MemberController {
       next(error);
     }
   };
+
+  // --- Member Portal Login ---
+  portalLogin = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { memberCode, nationalCode } = req.body;
+      const result = await this.memberService.portalLogin(memberCode, nationalCode);
+      res.json(ApiResponse.success(result, 'ورود به پروفایل عضو با موفقیت انجام شد'));
+    } catch (error) {
+      next(error);
+    }
+  };
 }

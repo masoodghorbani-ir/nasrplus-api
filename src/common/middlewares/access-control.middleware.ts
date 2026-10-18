@@ -4,6 +4,7 @@ import { ApiError } from '../utils/api-error';
 import { Admin } from '../../modules/admin/models/admin.model';
 import { AdminType, IAdminDocument } from '../../modules/admin/interfaces/admin.interface';
 import { IPermission } from '../../modules/admin/interfaces/permission.interface';
+import { Member } from '../../modules/members/models/member.model';
 
 export type RouteAccessType = 'public' | 'private' | 'superadmin' | 'authenticated';
 
@@ -71,11 +72,31 @@ export function accessControl(
       }
 
       // Verify token
-      let payload;
+      let payload: any;
       try {
         payload = JwtUtil.verify(token);
       } catch {
         throw ApiError.unauthorized('Invalid or expired authentication token');
+      }
+
+      // Check if token belongs to MEMBER (Member Portal Self-Access)
+      if (payload && payload.type === 'MEMBER') {
+        const member = await Member.findById(payload.id);
+        if (!member) {
+          throw ApiError.unauthorized('Member account not found');
+        }
+        // Allow self-access on member subresources (excluding admin verification / deletion / import)
+        const isSelfResource = req.params.id === payload.id;
+        const isVerifyAction = req.path.includes('/verify');
+        const isDeleteEntireMember = req.method === 'DELETE' && req.path === `/${payload.id}`;
+        const isImportAction = req.path.includes('/import');
+
+        if (isSelfResource && !isVerifyAction && !isDeleteEntireMember && !isImportAction) {
+          (req as any).member = member;
+          return next();
+        }
+
+        throw ApiError.forbidden('Access denied for member token on this resource');
       }
 
       // Fetch admin with permissions populated

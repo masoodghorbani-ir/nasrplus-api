@@ -10,6 +10,8 @@ import {
   IAcademicQualification,
   QualificationVerificationStatus,
 } from '../../lookup/interfaces/academic-qualification.interface';
+import { Member } from '../models/member.model';
+import { JwtUtil } from '../../../common/utils/jwt.util';
 import { ApiError } from '../../../common/utils/api-error';
 import { FilterQuery, Types } from 'mongoose';
 
@@ -746,5 +748,60 @@ export class MemberService {
       { path: 'verifiedBy', select: 'username fullName type' },
       { path: 'verificationLogs.changedBy', select: 'username fullName type' },
     ]);
+  }
+
+  // --- Member Portal Authentication ---
+  async portalLogin(
+    memberCode: string,
+    nationalCode: string
+  ): Promise<{ token: string; member: IMember }> {
+    if (!memberCode || !nationalCode) {
+      throw ApiError.badRequest('کد عضویت و کد ملی الزامی است');
+    }
+
+    const cleanMemberCode = String(memberCode)
+      .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776))
+      .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632))
+      .trim();
+
+    const cleanNationalCode = String(nationalCode)
+      .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776))
+      .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632))
+      .trim();
+
+    const member = await Member.findOne({
+      memberCode: { $regex: new RegExp(`^${cleanMemberCode}$`, 'i') },
+    });
+
+    if (!member) {
+      throw ApiError.notFound('عضوی با این کد عضویت در سامانه یافت نشد');
+    }
+
+    if (member.nationalCode) {
+      const memberNational = String(member.nationalCode)
+        .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776))
+        .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632))
+        .trim();
+
+      if (memberNational !== cleanNationalCode) {
+        throw ApiError.unauthorized('کد ملی وارد شده با پرونده عضویت مطابقت ندارد');
+      }
+    }
+
+    const populated = await this.memberRepository.findById(member._id.toString());
+    if (!populated) {
+      throw ApiError.notFound('اطلاعات تفصیلی عضو یافت نشد');
+    }
+
+    const token = JwtUtil.sign({
+      id: member._id.toString(),
+      memberCode: member.memberCode,
+      type: 'MEMBER',
+    });
+
+    return {
+      token,
+      member: populated,
+    };
   }
 }

@@ -111,14 +111,23 @@ npm run dev
 npm run seed
 ```
 
-### ۳. بیلد و بررسی خطاهای تایپ‌اسکریپت:
+### ۳. بیلد نهایی و مبهم‌سازی پروداکشن (esbuild + javascript-obfuscator):
 ```bash
 npm run build
 ```
+این دستور به‌طور خودکار مراحل زیر را انجام می‌دهد:
+- اعتبارسنجی کامل تایپ‌های تایپ‌اسکریپت (`type-check`)
+- باندل سورس‌کد با **esbuild**
+- مبهم‌سازی پیشرفته و غیرقابل خواندن کردن کد با **javascript-obfuscator** در فایل `dist/server.js`
+- آماده‌سازی کامل پکیج دیپلوی شامل `web.config` (برای IIS)، `ecosystem.config.js` (برای PM2)، `package.json` پروداکشن، فولدر `public/` و `uploads/`
 
 ### ۴. اجرای خروجی کامپایل‌شده (Production):
 ```bash
+# اجرای مستقیم
 npm start
+
+# یا با استفاده از PM2
+pm2 start ecosystem.config.js
 ```
 
 ---
@@ -128,6 +137,7 @@ npm start
 پس از اجرای سرور، مستندات کامل API از طریق آدرس‌های زیر در دسترس است:
 - **آدرس اصلی Swagger:** [http://localhost:5000/api-docs](http://localhost:5000/api-docs)
 - **آدرس میانبر:** [http://localhost:5000/docs](http://localhost:5000/docs)
+- **آدرس مستقیم مشخصات JSON:** [http://localhost:5000/api-docs.json](http://localhost:5000/api-docs.json)
 
 ---
 

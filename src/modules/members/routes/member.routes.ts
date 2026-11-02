@@ -8,8 +8,13 @@ const router = Router();
 const memberController = new MemberController();
 const memberImportController = new MemberImportController();
 
-// --- Member Portal Public Auth ---
+// --- Member Portal Auth ---
 router.post('/portal/login', publicRoute(), memberController.portalLogin);
+router.post(
+  '/portal/change-password',
+  accessControl('authenticated'),
+  memberController.changePassword
+);
 
 // --- Excel Import Routes ---
 router.post(

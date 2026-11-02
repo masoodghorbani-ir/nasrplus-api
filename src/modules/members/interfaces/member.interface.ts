@@ -24,6 +24,7 @@ export interface IMember extends Document {
   // --- Guild Identity and Profile Fields ---
   memberCode: string;               // Unique Guild Membership Number
   nationalCode?: string;            // 10-digit National ID (for individuals)
+  password?: string;                // Hashed portal login password
   firstName?: string;               // First name
   lastName?: string;                // Last name
   fatherName?: string;              // Father's name
@@ -47,3 +48,9 @@ export interface IMember extends Document {
   skills?: IMemberSkill[];
   readonly fullName: string;
 }
+
+export interface IMemberMethods {
+  comparePassword(candidatePassword: string): Promise<boolean>;
+}
+
+export type IMemberDocument = IMember & IMemberMethods;

@@ -3,7 +3,8 @@ import { envConfig } from '../../config/env.config';
 
 export interface JwtTokenPayload {
   id: string;
-  username: string;
+  username?: string;
+  memberCode?: string;
   type: string;
 }
 

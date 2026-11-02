@@ -443,9 +443,29 @@ export class MemberController {
   // --- Member Portal Login ---
   portalLogin = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const { memberCode, nationalCode } = req.body;
-      const result = await this.memberService.portalLogin(memberCode, nationalCode);
+      const { memberCode, password, nationalCode } = req.body;
+      // Accept nationalCode as password alias for backward compatibility
+      const result = await this.memberService.portalLogin(
+        memberCode,
+        password || nationalCode
+      );
       res.json(ApiResponse.success(result, 'ورود به پروفایل عضو با موفقیت انجام شد'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  // --- Member Portal Change Password ---
+  changePassword = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const memberId = req.member?._id?.toString();
+      if (!memberId) {
+        throw ApiError.unauthorized('احراز هویت عضو الزامی است');
+      }
+
+      const { currentPassword, newPassword } = req.body;
+      await this.memberService.changePassword(memberId, currentPassword, newPassword);
+      res.json(ApiResponse.success(null, 'رمز عبور با موفقیت تغییر کرد'));
     } catch (error) {
       next(error);
     }

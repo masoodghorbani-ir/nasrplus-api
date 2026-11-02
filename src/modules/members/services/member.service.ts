@@ -87,11 +87,19 @@ export class MemberService {
   }
 
   async createMember(data: Partial<IMember>): Promise<IMember> {
+    // Default portal password to nationalCode when not explicitly provided
+    if (!data.password && data.nationalCode) {
+      data.password = data.nationalCode;
+    }
     return await this.memberRepository.create(data);
   }
 
   async updateMember(id: string, data: Partial<IMember>): Promise<IMember> {
-    const updated = await this.memberRepository.updateById(id, data);
+    // Password changes must go through the dedicated change-password route
+    const { password: _password, ...safeData } = data as Partial<IMember> & {
+      password?: string;
+    };
+    const updated = await this.memberRepository.updateById(id, safeData);
     if (!updated) {
       throw ApiError.notFound(`Member with ID '${id}' was not found`);
     }
@@ -753,10 +761,10 @@ export class MemberService {
   // --- Member Portal Authentication ---
   async portalLogin(
     memberCode: string,
-    nationalCode: string
+    password: string
   ): Promise<{ token: string; member: IMember }> {
-    if (!memberCode || !nationalCode) {
-      throw ApiError.badRequest('کد عضویت و کد ملی الزامی است');
+    if (!memberCode || !password) {
+      throw ApiError.badRequest('کد عضویت و رمز عبور الزامی است');
     }
 
     const cleanMemberCode = String(memberCode)
@@ -764,28 +772,39 @@ export class MemberService {
       .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632))
       .trim();
 
-    const cleanNationalCode = String(nationalCode)
+    const cleanPassword = String(password)
       .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776))
       .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632))
       .trim();
 
     const member = await Member.findOne({
       memberCode: { $regex: new RegExp(`^${cleanMemberCode}$`, 'i') },
-    });
+    }).select('+password');
 
     if (!member) {
       throw ApiError.notFound('عضوی با این کد عضویت در سامانه یافت نشد');
     }
 
-    if (member.nationalCode) {
+    let isPasswordValid = false;
+
+    if (member.password) {
+      isPasswordValid = await member.comparePassword(cleanPassword);
+    } else if (member.nationalCode) {
+      // Legacy members without hashed password: accept nationalCode once, then persist hash
       const memberNational = String(member.nationalCode)
         .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776))
         .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632))
         .trim();
 
-      if (memberNational !== cleanNationalCode) {
-        throw ApiError.unauthorized('کد ملی وارد شده با پرونده عضویت مطابقت ندارد');
+      if (memberNational === cleanPassword) {
+        isPasswordValid = true;
+        member.password = cleanPassword;
+        await member.save();
       }
+    }
+
+    if (!isPasswordValid) {
+      throw ApiError.unauthorized('رمز عبور وارد شده صحیح نیست');
     }
 
     const populated = await this.memberRepository.findById(member._id.toString());
@@ -803,5 +822,48 @@ export class MemberService {
       token,
       member: populated,
     };
+  }
+
+  async changePassword(
+    memberId: string,
+    currentPassword: string,
+    newPassword: string
+  ): Promise<void> {
+    if (!currentPassword || !newPassword) {
+      throw ApiError.badRequest('رمز عبور فعلی و رمز عبور جدید الزامی است');
+    }
+
+    if (String(newPassword).trim().length < 6) {
+      throw ApiError.badRequest('رمز عبور جدید باید حداقل ۶ کاراکتر باشد');
+    }
+
+    const member = await Member.findById(memberId).select('+password');
+    if (!member) {
+      throw ApiError.notFound('عضو یافت نشد');
+    }
+
+    const cleanCurrent = String(currentPassword)
+      .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776))
+      .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632))
+      .trim();
+
+    let isCurrentValid = false;
+
+    if (member.password) {
+      isCurrentValid = await member.comparePassword(cleanCurrent);
+    } else if (member.nationalCode) {
+      const memberNational = String(member.nationalCode)
+        .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776))
+        .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632))
+        .trim();
+      isCurrentValid = memberNational === cleanCurrent;
+    }
+
+    if (!isCurrentValid) {
+      throw ApiError.unauthorized('رمز عبور فعلی صحیح نیست');
+    }
+
+    member.password = String(newPassword).trim();
+    await member.save();
   }
 }

@@ -11,8 +11,11 @@ const startServer = async (): Promise<void> => {
     // Execute initial seed for default lookup tables
     await seedDatabase();
 
-    const server = app.listen(envConfig.port, () => {
-      console.log(`🚀 NasrPlus API server is running on port ${envConfig.port} in ${envConfig.nodeEnv} mode`);
+    // تعیین انعطاف‌پذیر پورت (پشتیبانی از پورت عددی و Pipeهای ویندوز/iisnode)
+    const port = process.env.PORT || envConfig.port || 3000;
+
+    const server = app.listen(port as any, () => {
+      console.log(`🚀 NasrPlus API server is running on port ${port} in ${envConfig.nodeEnv} mode`);
     });
 
     // Handle graceful shutdown signals

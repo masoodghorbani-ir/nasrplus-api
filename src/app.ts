@@ -28,8 +28,9 @@ app.use(cors({ origin: envConfig.corsOrigin }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve uploaded static files
+// Serve static assets and uploads
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+app.use('/public', express.static(path.join(process.cwd(), 'public')));
 
 if (!envConfig.isProduction) {
   app.use(morgan('dev'));
@@ -38,6 +39,10 @@ if (!envConfig.isProduction) {
 // Swagger UI interactive documentation endpoints
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 app.get('/docs', (_req, res) => res.redirect('/api-docs'));
+app.get('/api-docs.json', (_req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.send(swaggerDocument);
+});
 
 // Health check endpoint
 app.get('/api/v1/health', (_req, res) => {

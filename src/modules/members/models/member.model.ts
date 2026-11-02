@@ -1,7 +1,8 @@
 import { Schema, model } from 'mongoose';
-import { IMember } from '../interfaces/member.interface';
+import bcrypt from 'bcryptjs';
+import { IMemberDocument } from '../interfaces/member.interface';
 
-const memberSchema = new Schema<IMember>(
+const memberSchema = new Schema<IMemberDocument>(
   {
     // -------------------------------------------------------------
     // Foreign Key References (from ER Diagram)
@@ -60,6 +61,11 @@ const memberSchema = new Schema<IMember>(
       sparse: true,
       match: [/^[0-9]{10}$/, 'National code must be a 10-digit number'],
       index: true,
+    },
+    password: {
+      type: String,
+      minlength: [6, 'Password must be at least 6 characters long'],
+      select: false,
     },
     firstName: {
       type: String,
@@ -125,8 +131,20 @@ const memberSchema = new Schema<IMember>(
   {
     timestamps: true,
     versionKey: false,
-    toJSON: { virtuals: true },
-    toObject: { virtuals: true },
+    toJSON: {
+      virtuals: true,
+      transform: (_doc, ret: Record<string, any>) => {
+        delete ret.password;
+        return ret;
+      },
+    },
+    toObject: {
+      virtuals: true,
+      transform: (_doc, ret: Record<string, any>) => {
+        delete ret.password;
+        return ret;
+      },
+    },
   }
 );
 
@@ -158,15 +176,55 @@ memberSchema.virtual('skills', {
 });
 
 // Full name computed virtual
-memberSchema.virtual('fullName').get(function (this: IMember) {
+memberSchema.virtual('fullName').get(function (this: IMemberDocument) {
   if (this.firstName || this.lastName) {
     return `${this.firstName || ''} ${this.lastName || ''}`.trim();
   }
   return '';
 });
 
+// Hash password on save when modified
+memberSchema.pre('save', async function (next) {
+  if (this.isModified('password') && this.password) {
+    if (!this.password.startsWith('$2a$') && !this.password.startsWith('$2b$')) {
+      const salt = await bcrypt.genSalt(10);
+      this.password = await bcrypt.hash(this.password, salt);
+    }
+  }
+  next();
+});
+
+// Hash password on findOneAndUpdate when provided
+memberSchema.pre('findOneAndUpdate', async function (next) {
+  const update = this.getUpdate() as Record<string, any>;
+  const newPassword = update?.password || update?.$set?.password;
+
+  if (newPassword && !newPassword.startsWith('$2a$') && !newPassword.startsWith('$2b$')) {
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+    if (update.password) {
+      update.password = hashedPassword;
+    }
+    if (update.$set?.password) {
+      update.$set.password = hashedPassword;
+    }
+  }
+
+  next();
+});
+
+// Compare plaintext candidate password with stored hash
+memberSchema.methods.comparePassword = async function (
+  candidatePassword: string
+): Promise<boolean> {
+  if (!this.password) {
+    return false;
+  }
+  return bcrypt.compare(candidatePassword, this.password);
+};
+
 // Compound indexes for query optimization
 memberSchema.index({ status: 1, membershipTypeId: 1 });
 memberSchema.index({ lastName: 1, firstName: 1 });
 
-export const Member = model<IMember>('Member', memberSchema);
+export const Member = model<IMemberDocument>('Member', memberSchema);

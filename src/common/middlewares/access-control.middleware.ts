@@ -81,10 +81,19 @@ export function accessControl(
 
       // Check if token belongs to MEMBER (Member Portal Self-Access)
       if (payload && payload.type === 'MEMBER') {
-        const member = await Member.findById(payload.id);
+        const member = await Member.findById(payload.id).select('+password');
         if (!member) {
           throw ApiError.unauthorized('Member account not found');
         }
+
+        req.member = member;
+
+        // Portal self-service routes (no :id param)
+        const isPortalSelfService = req.path.includes('/portal/change-password');
+        if (isPortalSelfService) {
+          return next();
+        }
+
         // Allow self-access on member subresources (excluding admin verification / deletion / import)
         const isSelfResource = req.params.id === payload.id;
         const isVerifyAction = req.path.includes('/verify');
@@ -92,7 +101,6 @@ export function accessControl(
         const isImportAction = req.path.includes('/import');
 
         if (isSelfResource && !isVerifyAction && !isDeleteEntireMember && !isImportAction) {
-          (req as any).member = member;
           return next();
         }
 

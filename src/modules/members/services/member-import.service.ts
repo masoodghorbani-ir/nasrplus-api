@@ -385,7 +385,7 @@ export class MemberImportService {
       const expiryDate = parseDateValue(rawExpiryDate) || undefined;
 
       try {
-        // Create Member document
+        // Create Member document (default portal password = nationalCode)
         const createdMember = await Member.create({
           natureOfMembership: natureId,
           membershipTypeId: typeId,
@@ -393,6 +393,7 @@ export class MemberImportService {
           status: status || 'ACTIVE',
           memberCode,
           nationalCode: nationalCode || undefined,
+          password: nationalCode || undefined,
           firstName,
           lastName,
           email,

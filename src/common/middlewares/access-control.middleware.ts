@@ -99,8 +99,15 @@ export function accessControl(
         const isVerifyAction = req.path.includes('/verify');
         const isDeleteEntireMember = req.method === 'DELETE' && req.path === `/${payload.id}`;
         const isImportAction = req.path.includes('/import');
+        const isAdminPasswordReset = req.path.endsWith('/password');
 
-        if (isSelfResource && !isVerifyAction && !isDeleteEntireMember && !isImportAction) {
+        if (
+          isSelfResource &&
+          !isVerifyAction &&
+          !isDeleteEntireMember &&
+          !isImportAction &&
+          !isAdminPasswordReset
+        ) {
           return next();
         }
 

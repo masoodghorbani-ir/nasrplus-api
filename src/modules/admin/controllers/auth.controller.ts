@@ -25,6 +25,25 @@ export class AuthController {
     }
   };
 
+  /** Change password for the authenticated admin */
+  changePassword = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!req.admin) {
+        throw ApiError.unauthorized('Authentication required');
+      }
+
+      const { currentPassword, newPassword } = req.body;
+      await this.authService.changePassword(
+        req.admin._id.toString(),
+        currentPassword,
+        newPassword
+      );
+      res.json(ApiResponse.success(null, 'رمز عبور با موفقیت تغییر کرد'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
   /** Retrieve authenticated admin profile */
   getProfile = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {

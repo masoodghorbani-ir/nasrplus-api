@@ -108,6 +108,11 @@ export class MemberService {
 
   async deleteMember(id: string): Promise<IMember> {
     const member = await this.getMemberById(id);
+    const deleted = await this.memberRepository.deleteById(id);
+    if (!deleted) {
+      throw ApiError.notFound(`Member with ID '${id}' was not found`);
+    }
+
     if (member.profileImage && member.profileImage.startsWith('/uploads/')) {
       const diskPath = path.join(process.cwd(), member.profileImage.replace(/^\//, ''));
       if (fs.existsSync(diskPath)) {
@@ -119,10 +124,6 @@ export class MemberService {
       }
     }
 
-    const deleted = await this.memberRepository.deleteById(id);
-    if (!deleted) {
-      throw ApiError.notFound(`Member with ID '${id}' was not found`);
-    }
     return deleted;
   }
 
@@ -333,7 +334,8 @@ export class MemberService {
     }
 
     const fromStatus = item.verificationStatus;
-    const finalComment = comment?.trim() || (status === 'REJECTED' ? rejectionReason!.trim() : `Status changed to ${status}`);
+    const statusTextFa = status === 'APPROVED' ? 'تایید شده' : (status === 'REJECTED' ? 'رد شده' : 'در انتظار بررسی');
+    const finalComment = comment?.trim() || (status === 'REJECTED' ? rejectionReason!.trim() : `تغییر وضعیت به ${statusTextFa}`);
 
     item.verificationLogs.push({
       fromStatus,
@@ -595,7 +597,7 @@ export class MemberService {
       toStatus: 'PENDING',
       changedBy: adminId ? new Types.ObjectId(adminId) : null,
       changedAt: new Date(),
-      comment: 'Certificate uploaded - Pending expert verification',
+      comment: 'بارگذاری تصویر گواهینامه - در انتظار تایید کارشناس',
     });
 
     await skill.save();
@@ -659,7 +661,8 @@ export class MemberService {
     }
 
     const fromStatus = item.verificationStatus;
-    const finalComment = comment?.trim() || (status === 'REJECTED' ? rejectionReason!.trim() : `Status changed to ${status}`);
+    const statusTextFa = status === 'APPROVED' ? 'تایید شده' : (status === 'REJECTED' ? 'رد شده' : 'در انتظار بررسی');
+    const finalComment = comment?.trim() || (status === 'REJECTED' ? rejectionReason!.trim() : `تغییر وضعیت به ${statusTextFa}`);
 
     item.verificationLogs.push({
       fromStatus,
@@ -727,7 +730,8 @@ export class MemberService {
     }
 
     const fromStatus = item.verificationStatus;
-    const finalComment = comment?.trim() || (status === 'REJECTED' ? rejectionReason!.trim() : `Status changed to ${status}`);
+    const statusTextFa = status === 'APPROVED' ? 'تایید شده' : (status === 'REJECTED' ? 'رد شده' : 'در انتظار بررسی');
+    const finalComment = comment?.trim() || (status === 'REJECTED' ? rejectionReason!.trim() : `تغییر وضعیت به ${statusTextFa}`);
 
     item.verificationLogs.push({
       fromStatus,
@@ -864,6 +868,26 @@ export class MemberService {
     }
 
     member.password = String(newPassword).trim();
+    await member.save();
+  }
+
+  /** Admin reset: set a member portal password without the current password */
+  async setPassword(memberId: string, newPassword: string): Promise<void> {
+    const cleanNew = String(newPassword || '')
+      .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776))
+      .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632))
+      .trim();
+
+    if (cleanNew.length < 6) {
+      throw ApiError.badRequest('رمز عبور جدید باید حداقل ۶ کاراکتر باشد');
+    }
+
+    const member = await Member.findById(memberId).select('+password');
+    if (!member) {
+      throw ApiError.notFound('عضو یافت نشد');
+    }
+
+    member.password = cleanNew;
     await member.save();
   }
 }

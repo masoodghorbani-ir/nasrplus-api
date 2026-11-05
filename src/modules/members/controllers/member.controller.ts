@@ -470,4 +470,18 @@ export class MemberController {
       next(error);
     }
   };
+
+  /** Admin sets a member portal password without the current password */
+  setPassword = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!req.admin) {
+        throw ApiError.forbidden('فقط مدیر سامانه می‌تواند رمز عضو را تغییر دهد');
+      }
+
+      await this.memberService.setPassword(req.params.id as string, req.body?.newPassword);
+      res.json(ApiResponse.success(null, 'رمز عبور عضو با موفقیت تغییر کرد'));
+    } catch (error) {
+      next(error);
+    }
+  };
 }

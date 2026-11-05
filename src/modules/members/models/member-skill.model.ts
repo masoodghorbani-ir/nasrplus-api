@@ -130,10 +130,10 @@ memberSkillSchema.pre('save', function (next) {
   if (this.isNew) {
     if (!this.verificationLogs || this.verificationLogs.length === 0) {
       const initialComment = this.verificationStatus === 'REJECTED'
-        ? (this.rejectionReason || 'Initial registration - Rejected')
+        ? (this.rejectionReason || 'ثبت اولیه مهارت - رد شده')
         : (this.verificationStatus === 'APPROVED'
-          ? 'Initial registration - Approved'
-          : 'Initial registration - Pending expert verification');
+          ? 'ثبت اولیه مهارت - تایید شده'
+          : 'ثبت اولیه مهارت - در انتظار تایید کارشناس');
 
       this.verificationLogs.push({
         toStatus: this.verificationStatus || 'PENDING',

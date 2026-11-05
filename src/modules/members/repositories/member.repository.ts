@@ -15,6 +15,7 @@ import {
   QualificationVerificationStatus,
 } from '../../lookup/interfaces/academic-qualification.interface';
 import { ApiError } from '../../../common/utils/api-error';
+import { assertNotReferenced } from '../../../common/utils/reference-guard';
 
 export class MemberRepository {
   // --- Member Operations ---
@@ -93,28 +94,13 @@ export class MemberRepository {
   }
 
   async deleteById(id: string): Promise<IMember | null> {
-    // Delete associated certificates files from disk
-    const skills = await MemberSkill.find({ memberId: id });
-    for (const skill of skills) {
-      if (skill.certificateFile && skill.certificateFile.startsWith('/uploads/')) {
-        const diskPath = path.join(process.cwd(), skill.certificateFile.replace(/^\//, ''));
-        if (fs.existsSync(diskPath)) {
-          try {
-            fs.unlinkSync(diskPath);
-          } catch {
-            // Ignore file deletion error
-          }
-        }
-      }
-    }
-
-    // Delete associated addresses, telephones, qualifications, and skills when member is deleted
-    await Promise.all([
-      MemberAddress.deleteMany({ membershipId: id }),
-      MemberTelephone.deleteMany({ membershipId: id }),
-      AcademicQualification.deleteMany({ memberId: id }),
-      MemberSkill.deleteMany({ memberId: id }),
+    await assertNotReferenced(id, [
+      { model: MemberAddress, field: 'membershipId', label: 'addresses' },
+      { model: MemberTelephone, field: 'membershipId', label: 'telephones' },
+      { model: AcademicQualification, field: 'memberId', label: 'academic qualifications' },
+      { model: MemberSkill, field: 'memberId', label: 'skills' },
     ]);
+
     return await Member.findByIdAndDelete(id);
   }
 
@@ -234,10 +220,10 @@ export class MemberRepository {
     }
 
     const initialComment = initialStatus === 'REJECTED'
-      ? (data.rejectionReason?.trim() || 'Initial registration - Rejected')
+      ? (data.rejectionReason?.trim() || 'ثبت اولیه مدرک - رد شده')
       : (initialStatus === 'APPROVED'
-        ? 'Initial registration - Approved'
-        : 'Initial registration - Pending expert verification');
+        ? 'ثبت اولیه مدرک - تایید شده'
+        : 'ثبت اولیه مدرک - در انتظار تایید کارشناس');
 
     payload.verificationLogs = [
       {
@@ -280,8 +266,8 @@ export class MemberRepository {
 
       const toStatus = data.verificationStatus as QualificationVerificationStatus;
       const logComment = toStatus === 'REJECTED'
-        ? (data.rejectionReason?.trim() || item.rejectionReason || 'Qualification rejected')
-        : (toStatus === 'APPROVED' ? 'Qualification approved' : 'Status reverted to pending');
+        ? (data.rejectionReason?.trim() || item.rejectionReason || 'رد مدرک تحصیلی')
+        : (toStatus === 'APPROVED' ? 'تایید مدرک تحصیلی' : 'بازنشانی وضعیت به در انتظار بررسی');
 
       item.verificationLogs.push({
         fromStatus: previousStatus,
@@ -319,15 +305,10 @@ export class MemberRepository {
   }
 
   async deleteQualification(qualificationId: string, memberId: string): Promise<IAcademicQualification | null> {
-    const deleted = await AcademicQualification.findOneAndDelete({ _id: qualificationId, memberId });
-    if (deleted) {
-      // Clear latestAcademicQualifications if it pointed to this qualification
-      await Member.updateOne(
-        { _id: memberId, latestAcademicQualifications: qualificationId },
-        { $unset: { latestAcademicQualifications: 1 } }
-      );
-    }
-    return deleted;
+    await assertNotReferenced(qualificationId, [
+      { model: Member, field: 'latestAcademicQualifications', label: 'members' },
+    ]);
+    return await AcademicQualification.findOneAndDelete({ _id: qualificationId, memberId });
   }
 
   // --- Member Skill Operations ---
@@ -366,10 +347,10 @@ export class MemberRepository {
     }
 
     const initialComment = initialStatus === 'REJECTED'
-      ? (data.rejectionReason?.trim() || 'Initial registration - Rejected')
+      ? (data.rejectionReason?.trim() || 'ثبت اولیه مهارت - رد شده')
       : (initialStatus === 'APPROVED'
-        ? 'Initial registration - Approved'
-        : 'Initial registration - Pending expert verification');
+        ? 'ثبت اولیه مهارت - تایید شده'
+        : 'ثبت اولیه مهارت - در انتظار تایید کارشناس');
 
     payload.verificationLogs = [
       {
@@ -411,8 +392,8 @@ export class MemberRepository {
 
       const toStatus = data.verificationStatus as SkillVerificationStatus;
       const logComment = toStatus === 'REJECTED'
-        ? (data.rejectionReason?.trim() || item.rejectionReason || 'Skill verification rejected')
-        : (toStatus === 'APPROVED' ? 'Skill verification approved' : 'Status reverted to pending');
+        ? (data.rejectionReason?.trim() || item.rejectionReason || 'رد مهارت و گواهینامه')
+        : (toStatus === 'APPROVED' ? 'تایید مهارت و گواهینامه' : 'بازنشانی وضعیت به در انتظار بررسی');
 
       item.verificationLogs.push({
         fromStatus: previousStatus,

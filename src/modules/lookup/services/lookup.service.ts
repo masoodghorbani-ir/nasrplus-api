@@ -11,6 +11,10 @@ import {
   Province,
   City,
 } from '../models';
+import { Member } from '../../members/models/member.model';
+import { MemberAddress } from '../../members/models/member-address.model';
+import { MemberSkill } from '../../members/models/member-skill.model';
+import { assertNotReferenced, ReferenceUsage } from '../../../common/utils/reference-guard';
 import {
   IMembershipType,
   ISpecialization,
@@ -59,8 +63,10 @@ export class LookupService {
   private async deleteFromModel<T extends Document>(
     model: Model<T>,
     id: string,
-    entityName: string
+    entityName: string,
+    usages: ReferenceUsage[] = []
   ): Promise<T> {
+    await assertNotReferenced(id, usages);
     const deleted = await model.findByIdAndDelete(id);
     if (!deleted) {
       throw ApiError.notFound(`${entityName} with ID '${id}' was not found`);
@@ -82,7 +88,9 @@ export class LookupService {
     return this.updateInModel(MembershipType, id, data, 'Membership type');
   }
   async deleteMembershipType(id: string): Promise<IMembershipType> {
-    return this.deleteFromModel(MembershipType, id, 'Membership type');
+    return this.deleteFromModel(MembershipType, id, 'Membership type', [
+      { model: Member, field: 'membershipTypeId', label: 'members' },
+    ]);
   }
 
   // --- Specializations ---
@@ -99,7 +107,10 @@ export class LookupService {
     return this.updateInModel(Specialization, id, data, 'Specialization');
   }
   async deleteSpecialization(id: string): Promise<ISpecialization> {
-    return this.deleteFromModel(Specialization, id, 'Specialization');
+    return this.deleteFromModel(Specialization, id, 'Specialization', [
+      { model: Member, field: 'specializationId', label: 'members' },
+      { model: MemberSkill, field: 'specializationId', label: 'member skills' },
+    ]);
   }
 
   // --- Ranks ---
@@ -116,7 +127,9 @@ export class LookupService {
     return this.updateInModel(Rank, id, data, 'Rank');
   }
   async deleteRank(id: string): Promise<IRank> {
-    return this.deleteFromModel(Rank, id, 'Rank');
+    return this.deleteFromModel(Rank, id, 'Rank', [
+      { model: Member, field: 'rankId', label: 'members' },
+    ]);
   }
 
   // --- Nature of Membership ---
@@ -133,7 +146,9 @@ export class LookupService {
     return this.updateInModel(NatureOfMembership, id, data, 'Nature of membership');
   }
   async deleteNatureOfMembership(id: string): Promise<INatureOfMembership> {
-    return this.deleteFromModel(NatureOfMembership, id, 'Nature of membership');
+    return this.deleteFromModel(NatureOfMembership, id, 'Nature of membership', [
+      { model: Member, field: 'natureOfMembership', label: 'members' },
+    ]);
   }
 
   // --- Academic Fields ---
@@ -150,7 +165,9 @@ export class LookupService {
     return this.updateInModel(AcademicField, id, data, 'Academic field');
   }
   async deleteAcademicField(id: string): Promise<IAcademicField> {
-    return this.deleteFromModel(AcademicField, id, 'Academic field');
+    return this.deleteFromModel(AcademicField, id, 'Academic field', [
+      { model: AcademicQualification, field: 'academicField', label: 'academic qualifications' },
+    ]);
   }
 
   // --- Degree Levels ---
@@ -167,7 +184,9 @@ export class LookupService {
     return this.updateInModel(DegreeLevel, id, data, 'Degree level');
   }
   async deleteDegreeLevel(id: string): Promise<IDegreeLevel> {
-    return this.deleteFromModel(DegreeLevel, id, 'Degree level');
+    return this.deleteFromModel(DegreeLevel, id, 'Degree level', [
+      { model: AcademicQualification, field: 'degreeLevel', label: 'academic qualifications' },
+    ]);
   }
 
   // --- Academic Qualifications ---
@@ -218,10 +237,10 @@ export class LookupService {
     }
 
     const initialComment = initialStatus === 'REJECTED'
-      ? (data.rejectionReason?.trim() || 'Initial registration - Rejected')
+      ? (data.rejectionReason?.trim() || 'ثبت اولیه مدرک - رد شده')
       : (initialStatus === 'APPROVED'
-        ? 'Initial registration - Approved'
-        : 'Initial registration - Pending expert verification');
+        ? 'ثبت اولیه مدرک - تایید شده'
+        : 'ثبت اولیه مدرک - در انتظار تایید کارشناس');
 
     payload.verificationLogs = [
       {
@@ -263,8 +282,8 @@ export class LookupService {
 
       const toStatus = data.verificationStatus as QualificationVerificationStatus;
       const logComment = toStatus === 'REJECTED'
-        ? (data.rejectionReason?.trim() || item.rejectionReason || 'Qualification rejected')
-        : (toStatus === 'APPROVED' ? 'Qualification approved' : 'Status reverted to pending');
+        ? (data.rejectionReason?.trim() || item.rejectionReason || 'رد مدرک تحصیلی')
+        : (toStatus === 'APPROVED' ? 'تایید مدرک تحصیلی' : 'بازنشانی وضعیت به در انتظار بررسی');
 
       item.verificationLogs.push({
         fromStatus: previousStatus,
@@ -322,7 +341,8 @@ export class LookupService {
     }
 
     const fromStatus = item.verificationStatus;
-    const finalComment = comment?.trim() || (status === 'REJECTED' ? rejectionReason!.trim() : `Status changed to ${status}`);
+    const statusTextFa = status === 'APPROVED' ? 'تایید شده' : (status === 'REJECTED' ? 'رد شده' : 'در انتظار بررسی');
+    const finalComment = comment?.trim() || (status === 'REJECTED' ? rejectionReason!.trim() : `تغییر وضعیت به ${statusTextFa}`);
 
     item.verificationLogs.push({
       fromStatus,
@@ -354,7 +374,9 @@ export class LookupService {
   }
 
   async deleteAcademicQualification(id: string): Promise<IAcademicQualification> {
-    return this.deleteFromModel(AcademicQualification, id, 'Academic qualification');
+    return this.deleteFromModel(AcademicQualification, id, 'Academic qualification', [
+      { model: Member, field: 'latestAcademicQualifications', label: 'members' },
+    ]);
   }
 
   // --- Address Types ---
@@ -371,7 +393,9 @@ export class LookupService {
     return this.updateInModel(AddressType, id, data, 'Address type');
   }
   async deleteAddressType(id: string): Promise<IAddressType> {
-    return this.deleteFromModel(AddressType, id, 'Address type');
+    return this.deleteFromModel(AddressType, id, 'Address type', [
+      { model: MemberAddress, field: 'addressType', label: 'member addresses' },
+    ]);
   }
 
   // --- Provinces ---
@@ -388,7 +412,10 @@ export class LookupService {
     return this.updateInModel(Province, id, data, 'Province');
   }
   async deleteProvince(id: string): Promise<IProvince> {
-    return this.deleteFromModel(Province, id, 'Province');
+    return this.deleteFromModel(Province, id, 'Province', [
+      { model: City, field: 'provinceId', label: 'cities' },
+      { model: MemberAddress, field: 'province', label: 'member addresses' },
+    ]);
   }
 
   // --- Cities ---
@@ -415,6 +442,8 @@ export class LookupService {
     return updated;
   }
   async deleteCity(id: string): Promise<ICity> {
-    return this.deleteFromModel(City, id, 'City');
+    return this.deleteFromModel(City, id, 'City', [
+      { model: MemberAddress, field: 'city', label: 'member addresses' },
+    ]);
   }
 }

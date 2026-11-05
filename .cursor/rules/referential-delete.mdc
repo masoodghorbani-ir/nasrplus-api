@@ -1,0 +1,14 @@
+---
+description: Block deletion when a record id is referenced by another collection
+alwaysApply: true
+---
+
+# Referential delete restriction
+
+Do not delete a record when its id is stored on another collection. This applies to base data (lookups) and every related table, until the user explicitly lifts the rule.
+
+- Before any delete, check every foreign key that points at the record, including nested paths such as `verificationLogs.changedBy`.
+- If any reference exists, throw `ApiError.conflict` (409) and name the collections that use it.
+- Do not cascade-delete dependents, and do not clear the foreign key, in order to force the delete.
+- A record with no remaining references may be deleted.
+- Use `assertNotReferenced` from `src/common/utils/reference-guard.ts`. When adding a relation, add it to the delete guard of the referenced model.

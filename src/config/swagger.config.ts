@@ -77,6 +77,34 @@ export const swaggerDocument = {
         },
       },
     },
+    '/api/v1/auth/change-password': {
+      post: {
+        tags: ['Auth'],
+        summary: 'Change admin password',
+        description: 'Changes the password of the authenticated admin after verifying the current password.',
+        security: [{ BearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['currentPassword', 'newPassword'],
+                properties: {
+                  currentPassword: { type: 'string' },
+                  newPassword: { type: 'string', minLength: 6 },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: 'Password changed' },
+          400: { description: 'Invalid current password or weak new password' },
+          401: { description: 'Authentication required' },
+        },
+      },
+    },
 
     // -------------------------------------------------------------
     // ADMIN MANAGEMENT ROUTES (SUPERADMIN ONLY)
@@ -353,6 +381,38 @@ export const swaggerDocument = {
             description: 'Member deleted successfully',
             content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponseMemberSingle' } } },
           },
+          404: { description: 'Member not found' },
+          409: { description: 'Cannot delete because the member is referenced by related records' },
+        },
+      },
+    },
+    '/api/v1/members/{id}/password': {
+      post: {
+        tags: ['Members'],
+        summary: 'Set member portal password',
+        description: 'Admin sets a member portal password without the current password. Requires members:update.',
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' }, description: 'Member ObjectId' },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['newPassword'],
+                properties: {
+                  newPassword: { type: 'string', minLength: 6 },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: 'Member password changed' },
+          400: { description: 'Password is missing or shorter than 6 characters' },
+          403: { description: 'Admin permission required' },
           404: { description: 'Member not found' },
         },
       },
@@ -671,6 +731,7 @@ export const swaggerDocument = {
         responses: {
           200: { description: 'Qualification deleted successfully' },
           404: { description: 'Qualification or member not found' },
+          409: { description: 'Cannot delete because the qualification is referenced by a member' },
         },
       },
     },
@@ -1049,7 +1110,7 @@ export const swaggerDocument = {
         tags: ['Companies'],
         summary: 'Delete company profile',
         parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
-        responses: { 200: { description: 'Company deleted' }, 404: { description: 'Not found' } },
+        responses: { 200: { description: 'Company deleted' }, 404: { description: 'Not found' }, 409: { description: 'Cannot delete because the company is referenced by a member' } },
       },
     },
 
@@ -1102,7 +1163,7 @@ export const swaggerDocument = {
         tags: ['Lookups - Membership Types'],
         summary: 'Delete membership type',
         parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
-        responses: { 200: { description: 'Deleted' }, 404: { description: 'Not found' } },
+        responses: { 200: { description: 'Deleted' }, 404: { description: 'Not found' }, 409: { description: 'Cannot delete because the record is referenced by another table' } },
       },
     },
 
@@ -1154,7 +1215,7 @@ export const swaggerDocument = {
         tags: ['Lookups - Specializations'],
         summary: 'Delete specialization',
         parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
-        responses: { 200: { description: 'Deleted' }, 404: { description: 'Not found' } },
+        responses: { 200: { description: 'Deleted' }, 404: { description: 'Not found' }, 409: { description: 'Cannot delete because the record is referenced by another table' } },
       },
     },
 
@@ -1206,7 +1267,7 @@ export const swaggerDocument = {
         tags: ['Lookups - Ranks'],
         summary: 'Delete rank',
         parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
-        responses: { 200: { description: 'Deleted' }, 404: { description: 'Not found' } },
+        responses: { 200: { description: 'Deleted' }, 404: { description: 'Not found' }, 409: { description: 'Cannot delete because the record is referenced by another table' } },
       },
     },
 
@@ -1260,7 +1321,7 @@ export const swaggerDocument = {
         tags: ['Lookups - Nature of Memberships'],
         summary: 'Delete nature of membership',
         parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
-        responses: { 200: { description: 'Deleted' }, 404: { description: 'Not found' } },
+        responses: { 200: { description: 'Deleted' }, 404: { description: 'Not found' }, 409: { description: 'Cannot delete because the record is referenced by another table' } },
       },
     },
 
@@ -1311,7 +1372,7 @@ export const swaggerDocument = {
         tags: ['Lookups - Academic Fields'],
         summary: 'Delete academic field',
         parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
-        responses: { 200: { description: 'Deleted' }, 404: { description: 'Not found' } },
+        responses: { 200: { description: 'Deleted' }, 404: { description: 'Not found' }, 409: { description: 'Cannot delete because the record is referenced by another table' } },
       },
     },
 
@@ -1363,7 +1424,7 @@ export const swaggerDocument = {
         tags: ['Lookups - Degree Levels'],
         summary: 'Delete degree level',
         parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
-        responses: { 200: { description: 'Deleted' }, 404: { description: 'Not found' } },
+        responses: { 200: { description: 'Deleted' }, 404: { description: 'Not found' }, 409: { description: 'Cannot delete because the record is referenced by another table' } },
       },
     },
 
@@ -1423,7 +1484,7 @@ export const swaggerDocument = {
         tags: ['Lookups - Academic Qualifications'],
         summary: 'Delete academic qualification',
         parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
-        responses: { 200: { description: 'Deleted' }, 404: { description: 'Not found' } },
+        responses: { 200: { description: 'Deleted' }, 404: { description: 'Not found' }, 409: { description: 'Cannot delete because the record is referenced by another table' } },
       },
     },
   },
@@ -1779,7 +1840,7 @@ export const swaggerDocument = {
             },
           },
           changedAt: { type: 'string', format: 'date-time' },
-          comment: { type: 'string', example: 'Status changed to APPROVED after verification' },
+          comment: { type: 'string', example: 'تایید مدرک تحصیلی پس از بررسی مستندات' },
         },
       },
       AcademicQualification: {
@@ -1893,7 +1954,7 @@ export const swaggerDocument = {
             },
           },
           changedAt: { type: 'string', format: 'date-time' },
-          comment: { type: 'string', example: 'Status changed to APPROVED after verifying certificate' },
+          comment: { type: 'string', example: 'تایید مهارت پس از بررسی گواهینامه' },
         },
       },
       MemberSkill: {

@@ -44,6 +44,7 @@ router.get('/', accessControl('private', 'members:read'), memberController.getMe
 router.post('/', accessControl('private', 'members:create'), memberController.createMember);
 router.get('/:id', accessControl('private', 'members:read'), memberController.getMemberById);
 router.put('/:id', accessControl('private', 'members:update'), memberController.updateMember);
+router.post('/:id/password', accessControl('private', 'members:update'), memberController.setPassword);
 router.delete('/:id', accessControl('private', 'members:delete'), memberController.deleteMember);
 
 // --- Member Photo Routes ---

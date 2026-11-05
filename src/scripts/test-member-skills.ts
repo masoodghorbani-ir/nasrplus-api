@@ -159,7 +159,7 @@ const runTests = async () => {
     // 10. Clean up test data
     console.log('\n9️⃣ Cleaning up test data...');
     await memberService.deleteMemberSkill(member._id.toString(), skill._id.toString());
-    await Member.findByIdAndDelete(member._id);
+    await memberService.deleteMember(member._id.toString());
     console.log('✅ Test data cleaned up successfully');
 
     console.log('\n🎉 ALL MEMBER SKILLS & VERIFICATION TESTS PASSED SUCCESSFULLY! 🎉\n');

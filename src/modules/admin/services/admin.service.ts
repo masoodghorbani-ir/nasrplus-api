@@ -3,7 +3,10 @@ import { Admin } from '../models/admin.model';
 import { Permission } from '../models/permission.model';
 import { AdminType, IAdminDocument } from '../interfaces/admin.interface';
 import { IPermissionDocument } from '../interfaces/permission.interface';
+import { AcademicQualification } from '../../lookup/models/academic-qualification.model';
+import { MemberSkill } from '../../members/models/member-skill.model';
 import { ApiError } from '../../../common/utils/api-error';
+import { assertNotReferenced } from '../../../common/utils/reference-guard';
 
 export interface CreateAdminDto {
   username: string;
@@ -143,6 +146,13 @@ export class AdminService {
     if (admin.type === AdminType.SUPERADMIN) {
       throw ApiError.badRequest('The SUPERADMIN account cannot be deleted');
     }
+
+    await assertNotReferenced(id, [
+      { model: AcademicQualification, field: 'verifiedBy', label: 'academic qualifications' },
+      { model: AcademicQualification, field: 'verificationLogs.changedBy', label: 'academic qualifications' },
+      { model: MemberSkill, field: 'verifiedBy', label: 'member skills' },
+      { model: MemberSkill, field: 'verificationLogs.changedBy', label: 'member skills' },
+    ]);
 
     await Admin.findByIdAndDelete(id);
   }

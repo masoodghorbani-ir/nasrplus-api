@@ -1,9 +1,11 @@
 import { Document, Types } from 'mongoose';
 import { IPermission } from './permission.interface';
+import { ISpecialization } from '../../lookup/interfaces/specialization.interface';
 
 export enum AdminType {
   SUPERADMIN = 'SUPERADMIN',
   ADMIN = 'ADMIN',
+  EXPERT = 'EXPERT',
 }
 
 export interface IAdmin {
@@ -14,6 +16,7 @@ export interface IAdmin {
   fullName?: string;
   isActive: boolean;
   permissions: Types.ObjectId[] | IPermission[];
+  reviewableSpecializations?: Types.ObjectId[] | ISpecialization[];
   createdAt: Date;
   updatedAt: Date;
 }

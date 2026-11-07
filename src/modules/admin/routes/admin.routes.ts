@@ -12,6 +12,7 @@ router.post('/permissions', superadminRoute(), controller.createPermission);
 // Admin management endpoints (Superadmin only)
 router.get('/', superadminRoute(), controller.getAdmins);
 router.post('/', superadminRoute(), controller.createAdmin);
+router.get('/login-logs', superadminRoute(), controller.getLoginLogs);
 router.get('/:id', superadminRoute(), controller.getAdminById);
 router.put('/:id', superadminRoute(), controller.updateAdmin);
 router.delete('/:id', superadminRoute(), controller.deleteAdmin);

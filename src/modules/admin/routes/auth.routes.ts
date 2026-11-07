@@ -11,6 +11,9 @@ router.post('/login', publicRoute(), controller.login);
 // Authenticated current admin profile route
 router.get('/me', authenticate(), controller.getProfile);
 
+// Authenticated current admin login logs
+router.get('/my-login-logs', authenticate(), controller.getMyLoginLogs);
+
 // Authenticated admin password change
 router.post('/change-password', authenticate(), controller.changePassword);
 

@@ -11,6 +11,7 @@
     "seed": "tsx src/scripts/seed.ts",
     "test:auth": "tsx src/scripts/test-admin-access.ts",
     "test:skills": "tsx src/scripts/test-member-skills.ts",
+    "test:expert": "tsx src/scripts/test-expert-and-logs.ts",
     "type-check": "tsc --noEmit"
   },
   "keywords": [

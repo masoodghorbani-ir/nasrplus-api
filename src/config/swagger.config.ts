@@ -105,6 +105,22 @@ export const swaggerDocument = {
         },
       },
     },
+    '/api/v1/auth/my-login-logs': {
+      get: {
+        tags: ['Auth'],
+        summary: 'Current admin login logs',
+        description: 'Returns login history and device/IP audit logs for the authenticated admin account.',
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          { name: 'page', in: 'query', schema: { type: 'integer', default: 1 } },
+          { name: 'limit', in: 'query', schema: { type: 'integer', default: 10 } },
+        ],
+        responses: {
+          200: { description: 'Login history retrieved' },
+          401: { description: 'Authentication required' },
+        },
+      },
+    },
 
     // -------------------------------------------------------------
     // ADMIN MANAGEMENT ROUTES (SUPERADMIN ONLY)
@@ -123,7 +139,7 @@ export const swaggerDocument = {
       post: {
         tags: ['Admins'],
         summary: 'Create admin account',
-        description: 'Requires Superadmin privileges. Type SUPERADMIN cannot be created more than once.',
+        description: 'Requires Superadmin privileges. Type SUPERADMIN cannot be created more than once. When type is EXPERT, reviewableSpecializations must contain at least one specialization ID.',
         security: [{ BearerAuth: [] }],
         requestBody: {
           required: true,
@@ -133,12 +149,18 @@ export const swaggerDocument = {
                 type: 'object',
                 required: ['username', 'password'],
                 properties: {
-                  username: { type: 'string', example: 'admin@nasrplus.ir' },
-                  password: { type: 'string', example: 'AdminPass@123' },
-                  type: { type: 'string', enum: ['ADMIN', 'SUPERADMIN'], default: 'ADMIN' },
-                  fullName: { type: 'string', example: 'Admin User' },
+                  username: { type: 'string', example: 'expert@nasrplus.ir' },
+                  password: { type: 'string', example: 'ExpertPass@123' },
+                  type: { type: 'string', enum: ['ADMIN', 'SUPERADMIN', 'EXPERT'], default: 'ADMIN' },
+                  fullName: { type: 'string', example: 'کارشناس بررسی تخصصی نرم‌افزار' },
                   isActive: { type: 'boolean', default: true },
                   permissions: { type: 'array', items: { type: 'string' } },
+                  reviewableSpecializations: {
+                    type: 'array',
+                    items: { type: 'string' },
+                    description: 'Required when type is EXPERT. Array of Specialization ObjectIds.',
+                    example: ['660000000000000000000001'],
+                  },
                 },
               },
             },
@@ -148,6 +170,120 @@ export const swaggerDocument = {
           201: { description: 'Admin created successfully' },
           400: { description: 'Validation error or SUPERADMIN duplicate attempt' },
           409: { description: 'Username already exists' },
+        },
+      },
+    },
+    '/api/v1/admins/login-logs': {
+      get: {
+        tags: ['Admins'],
+        summary: 'List all admin login logs',
+        description: 'Requires Superadmin privileges. Returns audit log of admin and expert logins with device, IP, and timestamp information.',
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          { name: 'page', in: 'query', schema: { type: 'integer', default: 1 } },
+          { name: 'limit', in: 'query', schema: { type: 'integer', default: 20 } },
+          { name: 'adminId', in: 'query', schema: { type: 'string' }, description: 'Filter by admin ID' },
+          { name: 'username', in: 'query', schema: { type: 'string' }, description: 'Filter by username' },
+          { name: 'adminType', in: 'query', schema: { type: 'string', enum: ['SUPERADMIN', 'ADMIN', 'EXPERT'] } },
+          { name: 'status', in: 'query', schema: { type: 'string', enum: ['SUCCESS', 'FAILED'] } },
+          { name: 'startDate', in: 'query', schema: { type: 'string' }, description: 'Filter from date (ISO format)' },
+          { name: 'endDate', in: 'query', schema: { type: 'string' }, description: 'Filter to date (ISO format)' },
+          { name: 'search', in: 'query', schema: { type: 'string' }, description: 'Search username, full name, IP, or device' },
+        ],
+        responses: {
+          200: { description: 'Admin login logs retrieved successfully' },
+          403: { description: 'Superadmin privileges required' },
+        },
+      },
+    },
+    '/api/v1/admins/{id}': {
+      get: {
+        tags: ['Admins'],
+        summary: 'Get admin account by ID',
+        description: 'Requires Superadmin privileges.',
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+        ],
+        responses: {
+          200: { description: 'Admin account retrieved' },
+          404: { description: 'Admin not found' },
+        },
+      },
+      put: {
+        tags: ['Admins'],
+        summary: 'Update admin account',
+        description: 'Requires Superadmin privileges. When type is changed to EXPERT, reviewableSpecializations must contain at least one specialization ID.',
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  username: { type: 'string' },
+                  password: { type: 'string' },
+                  type: { type: 'string', enum: ['ADMIN', 'SUPERADMIN', 'EXPERT'] },
+                  fullName: { type: 'string' },
+                  isActive: { type: 'boolean' },
+                  permissions: { type: 'array', items: { type: 'string' } },
+                  reviewableSpecializations: { type: 'array', items: { type: 'string' } },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: 'Admin updated successfully' },
+          400: { description: 'Validation error' },
+          404: { description: 'Admin not found' },
+        },
+      },
+      delete: {
+        tags: ['Admins'],
+        summary: 'Delete admin account',
+        description: 'Requires Superadmin privileges. Superadmin and admins with referential data (academic qualifications, skills verification, or login logs) cannot be deleted.',
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+        ],
+        responses: {
+          200: { description: 'Admin deleted successfully' },
+          400: { description: 'Cannot delete Superadmin' },
+          409: { description: 'Admin is referenced by other collections' },
+        },
+      },
+    },
+    '/api/v1/admins/{id}/permissions': {
+      put: {
+        tags: ['Admins'],
+        summary: 'Assign permissions to admin',
+        description: 'Requires Superadmin privileges. Overwrites existing permission list with provided array.',
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['permissionIds'],
+                properties: {
+                  permissionIds: { type: 'array', items: { type: 'string' } },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: 'Permissions assigned successfully' },
+          404: { description: 'Admin not found' },
         },
       },
     },

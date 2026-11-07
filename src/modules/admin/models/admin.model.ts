@@ -22,7 +22,7 @@ const adminSchema = new Schema<IAdminDocument>(
       type: String,
       enum: {
         values: Object.values(AdminType),
-        message: 'Type must be either ADMIN or SUPERADMIN',
+        message: 'Type must be either ADMIN, SUPERADMIN, or EXPERT',
       },
       default: AdminType.ADMIN,
       required: true,
@@ -44,6 +44,12 @@ const adminSchema = new Schema<IAdminDocument>(
         ref: 'Permission',
       },
     ],
+    reviewableSpecializations: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: 'Specialization',
+      },
+    ],
   },
   {
     timestamps: true,
@@ -54,8 +60,17 @@ const adminSchema = new Schema<IAdminDocument>(
         return ret;
       },
     },
+    toObject: {
+      transform: (_doc, ret: Record<string, any>) => {
+        delete (ret as any).password;
+        return ret;
+      },
+    },
   }
 );
+
+// Index reviewable specializations for fast lookup
+adminSchema.index({ reviewableSpecializations: 1 });
 
 // Enforce single SUPERADMIN existence at database index level
 adminSchema.index(

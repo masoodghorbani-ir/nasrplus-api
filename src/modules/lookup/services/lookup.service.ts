@@ -14,6 +14,7 @@ import {
 import { Member } from '../../members/models/member.model';
 import { MemberAddress } from '../../members/models/member-address.model';
 import { MemberSkill } from '../../members/models/member-skill.model';
+import { Admin } from '../../admin/models/admin.model';
 import { assertNotReferenced, ReferenceUsage } from '../../../common/utils/reference-guard';
 import {
   IMembershipType,
@@ -110,6 +111,7 @@ export class LookupService {
     return this.deleteFromModel(Specialization, id, 'Specialization', [
       { model: Member, field: 'specializationId', label: 'members' },
       { model: MemberSkill, field: 'specializationId', label: 'member skills' },
+      { model: Admin, field: 'reviewableSpecializations', label: 'expert admins' },
     ]);
   }
 

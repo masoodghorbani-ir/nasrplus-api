@@ -1,0 +1,453 @@
+---
+description: Technical specification and UI implementation guidelines for Admin & Experts Management, Reviewable Specializations, and Login Audit Logs in the Admin Panel
+globs: src/**/*.{ts,tsx,vue}
+---
+
+# Admin & Experts Management and Login Audit Logs Specification
+
+Technical documentation and UI/UX contract for implementing the **Admin & Expert Accounts Management** ("مدیریت مدیران و کارشناسان"), **Reviewable Specializations Assignment** ("رسته‌های تخصصی قابل بررسی"), and **Admin Login Audit Logs** ("لاگ‌های ورود به سیستم") in the NasrPlus Admin Panel / Frontend application.
+
+---
+
+## 1. Overview & Business Workflow
+
+The system supports three administrative roles under the `admins` collection:
+1. **SUPERADMIN (مدیر ارشد سامانه):**
+   - Singleton account (only one SUPERADMIN exists).
+   - Has unrestricted access across all modules, permissions, system settings, and audit logs.
+   - Cannot be deleted.
+2. **ADMIN (مدیر سامانه / اپراتور):**
+   - General administrative staff with fine-grained modular permissions (e.g., `members:read`, `members:update`, `companies:read`).
+3. **EXPERT (کارشناس بررسی پرونده‌ها):**
+   - Technical specialists responsible for reviewing, verifying, or rejecting member dossiers, skills, certificates, and academic qualifications.
+   - **Scope Restriction (رسته‌های تخصصی قابل بررسی):** An expert is linked to one or more technical branches (`reviewableSpecializations`) from the `specializations` lookup table.
+   - Experts review cases, skills, and applications that fall within their designated technical specializations.
+
+### 1.1 Expert Reviewable Specializations ("رسته‌های تخصصی قابل بررسی")
+- When creating or editing an account with type **`EXPERT`**, the UI **must display a mandatory multi-select field** titled **"رسته‌های تخصصی قابل بررسی"**.
+- This field accepts one or more IDs referencing the `specializations` lookup table (e.g., نرم‌افزار، سخت‌افزار، شبکه، امنیت و...).
+- If type is `ADMIN` or `SUPERADMIN`, this field is hidden and reset to empty array `[]`.
+- **Referential Integrity Restriction:** A `Specialization` record cannot be deleted from lookups if any active expert is assigned to it (API returns `409 Conflict`).
+
+### 1.2 Admin Login Audit Logs ("لاگ‌های ورود")
+For compliance, accountability, and security monitoring, every admin/expert login attempt is recorded in the `admin_login_logs` collection:
+- **Timestamp (`loginAt`):** Exact date and time of the login.
+- **Client IP (`ip`):** Real remote IP address (supports `X-Forwarded-For` proxy headers).
+- **Device & Form Factor (`device`):** `Desktop`, `Mobile`, or `Tablet`.
+- **Browser & OS (`browser`, `os`):** Extracted from `User-Agent` (e.g., `Chrome 122`, `Windows 10/11`, `macOS`, `Android`, `iOS`).
+- **Status (`status`):** `SUCCESS` or `FAILED`.
+- **Failure Reason (`failureReason`):** Detailed reason in case of failed logins (e.g., `Invalid password`, `Admin account is disabled`, `User not found`).
+- **Referential Integrity Restriction:** An admin account with existing login audit records cannot be deleted without preserving audit trails (API returns `409 Conflict`).
+
+---
+
+## 2. API Endpoints Contract
+
+All secured endpoints require `Authorization: Bearer <JWT>` header.
+
+### 2.1 Authentication & Profile Endpoints
+
+#### A. Admin / Expert Login
+- **URL:** `POST /api/v1/auth/login`
+- **Access:** Public
+- **Request Body:**
+  ```json
+  {
+    "username": "expert_software@nasrplus.ir",
+    "password": "SecurePassword@123"
+  }
+  ```
+- **Response (`200 OK`):**
+  ```json
+  {
+    "success": true,
+    "message": "Login successful",
+    "data": {
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6...",
+      "admin": {
+        "id": "672b1234567890abcdef1001",
+        "username": "expert_software@nasrplus.ir",
+        "type": "EXPERT",
+        "fullName": "مهندس رضایی (کارشناس نرم‌افزار)",
+        "permissions": [],
+        "reviewableSpecializations": [
+          {
+            "_id": "672a9876543210fedcba2001",
+            "title": "نرم‌افزار",
+            "code": "SW",
+            "isActive": true
+          },
+          {
+            "_id": "672a9876543210fedcba2004",
+            "title": "امنیت فضای تبادل اطلاعات (افتا)",
+            "code": "SEC",
+            "isActive": true
+          }
+        ]
+      }
+    }
+  }
+  ```
+
+#### B. Authenticated Profile Details (`/me`)
+- **URL:** `GET /api/v1/auth/me`
+- **Access:** Authenticated (any valid admin/expert token)
+- **Response (`200 OK`):**
+  Returns the complete admin object with `permissions` and `reviewableSpecializations` populated.
+
+#### C. Authenticated Admin's Own Login History
+- **URL:** `GET /api/v1/auth/my-login-logs`
+- **Access:** Authenticated
+- **Query Parameters:**
+  - `page`: (number, default: 1)
+  - `limit`: (number, default: 10)
+- **Response (`200 OK`):**
+  ```json
+  {
+    "success": true,
+    "message": "Login history retrieved successfully",
+    "data": {
+      "logs": [
+        {
+          "_id": "672b5555567890abcdef3001",
+          "username": "expert_software@nasrplus.ir",
+          "adminType": "EXPERT",
+          "ip": "5.218.42.110",
+          "device": "Desktop",
+          "browser": "Chrome 122",
+          "os": "Windows 10/11",
+          "status": "SUCCESS",
+          "loginAt": "2026-11-05T14:30:00.000Z"
+        }
+      ],
+      "pagination": {
+        "total": 12,
+        "page": 1,
+        "limit": 10,
+        "totalPages": 2
+      }
+    }
+  }
+  ```
+
+---
+
+### 2.2 Admins & Experts Management Endpoints (Superadmin Only)
+
+#### A. List All Admin Accounts
+- **URL:** `GET /api/v1/admins`
+- **Access:** `Superadmin`
+- **Response (`200 OK`):**
+  ```json
+  {
+    "success": true,
+    "message": "Admins retrieved successfully",
+    "data": [
+      {
+        "_id": "672b1234567890abcdef1001",
+        "username": "superadmin@nasrplus.ir",
+        "type": "SUPERADMIN",
+        "fullName": "مدیر ارشد سامانه",
+        "isActive": true,
+        "permissions": [],
+        "reviewableSpecializations": [],
+        "createdAt": "2026-10-01T08:00:00.000Z"
+      },
+      {
+        "_id": "672b1234567890abcdef1002",
+        "username": "expert_hw@nasrplus.ir",
+        "type": "EXPERT",
+        "fullName": "کارشناس سخت‌افزار و شبکه",
+        "isActive": true,
+        "permissions": [],
+        "reviewableSpecializations": [
+          {
+            "_id": "672a9876543210fedcba2002",
+            "title": "سخت‌افزار",
+            "code": "HW"
+          },
+          {
+            "_id": "672a9876543210fedcba2003",
+            "title": "شبکه و زیرساخت",
+            "code": "NET"
+          }
+        ],
+        "createdAt": "2026-11-01T09:30:00.000Z"
+      }
+    ]
+  }
+  ```
+
+#### B. Create Admin or Expert Account
+- **URL:** `POST /api/v1/admins`
+- **Access:** `Superadmin`
+- **Request Body (Creating Expert):**
+  ```json
+  {
+    "username": "expert_web@nasrplus.ir",
+    "password": "SecretPassword@123",
+    "type": "EXPERT",
+    "fullName": "مهندس علوی",
+    "isActive": true,
+    "reviewableSpecializations": [
+      "672a9876543210fedcba2001",
+      "672a9876543210fedcba2004"
+    ]
+  }
+  ```
+- **Validation Rules:**
+  - `username` & `password` are strictly required (minimum 6 characters for password).
+  - `type`: Must be one of `ADMIN`, `SUPERADMIN`, or `EXPERT`.
+  - When `type === "EXPERT"`, `reviewableSpecializations` is **strictly required** and must contain at least one valid `Specialization` ID.
+  - If any ID in `reviewableSpecializations` does not exist in the database, returns `400 Bad Request`.
+  - Single `SUPERADMIN` rule is strictly enforced (attempting to create another returns `400 Bad Request`).
+
+#### C. Get Admin / Expert Details by ID
+- **URL:** `GET /api/v1/admins/:id`
+- **Access:** `Superadmin`
+- **Response (`200 OK`):** Single admin object with populated `permissions` and `reviewableSpecializations`.
+
+#### D. Update Admin or Expert Account
+- **URL:** `PUT /api/v1/admins/:id`
+- **Access:** `Superadmin`
+- **Request Body:**
+  ```json
+  {
+    "fullName": "مهندس علوی (ویرایش شده)",
+    "isActive": true,
+    "type": "EXPERT",
+    "reviewableSpecializations": [
+      "672a9876543210fedcba2001"
+    ]
+  }
+  ```
+- **Behavior:**
+  - Changing type to `EXPERT` requires supplying non-empty `reviewableSpecializations`.
+  - Changing type from `EXPERT` to `ADMIN` clears `reviewableSpecializations` to `[]`.
+  - Optional `password` field re-hashes password if provided.
+
+#### E. Delete Admin Account
+- **URL:** `DELETE /api/v1/admins/:id`
+- **Access:** `Superadmin`
+- **Referential Integrity:**
+  - Returns `400 Bad Request` if attempting to delete `SUPERADMIN`.
+  - Returns `409 Conflict` if the admin is referenced by:
+    - Member skills verification logs (`member skills`)
+    - Academic qualifications verification logs (`academic qualifications`)
+    - Admin login audit logs (`admin login logs`)
+
+#### F. Assign Permissions to Admin
+- **URL:** `PUT /api/v1/admins/:id/permissions`
+- **Access:** `Superadmin`
+- **Request Body:**
+  ```json
+  {
+    "permissionIds": [
+      "672a11111111111111111111",
+      "672a22222222222222222222"
+    ]
+  }
+  ```
+
+---
+
+### 2.3 System-wide Login Audit Logs Endpoint
+
+#### Query All Login Logs
+- **URL:** `GET /api/v1/admins/login-logs`
+- **Access:** `Superadmin`
+- **Query Parameters:**
+  - `page`: (number, default: 1)
+  - `limit`: (number, default: 20, max: 100)
+  - `adminId`: (string, filter by admin ObjectId)
+  - `username`: (string, case-insensitive partial match)
+  - `adminType`: (`SUPERADMIN` | `ADMIN` | `EXPERT`)
+  - `status`: (`SUCCESS` | `FAILED`)
+  - `startDate`: (ISO Date string, filters `loginAt >= startDate`)
+  - `endDate`: (ISO Date string, filters `loginAt <= endDate`)
+  - `search`: (string, searches across `username`, `fullName`, `ip`, `device`, `browser`, `os`)
+- **Response (`200 OK`):**
+  ```json
+  {
+    "success": true,
+    "message": "Admin login logs retrieved successfully",
+    "data": {
+      "logs": [
+        {
+          "_id": "672b7777767890abcdef9001",
+          "adminId": {
+            "_id": "672b1234567890abcdef1002",
+            "username": "expert_hw@nasrplus.ir",
+            "fullName": "کارشناس سخت‌افزار",
+            "type": "EXPERT",
+            "isActive": true
+          },
+          "username": "expert_hw@nasrplus.ir",
+          "adminType": "EXPERT",
+          "fullName": "کارشناس سخت‌افزار",
+          "ip": "2.188.10.45",
+          "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)...",
+          "device": "Desktop",
+          "browser": "Firefox 122",
+          "os": "Windows 10/11",
+          "status": "SUCCESS",
+          "loginAt": "2026-11-05T15:10:00.000Z",
+          "createdAt": "2026-11-05T15:10:00.000Z"
+        },
+        {
+          "_id": "672b7777767890abcdef9002",
+          "username": "unknown_intruder@nasrplus.ir",
+          "ip": "185.190.22.4",
+          "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_2)...",
+          "device": "Mobile",
+          "browser": "Safari 17",
+          "os": "iOS (iPhone)",
+          "status": "FAILED",
+          "failureReason": "User not found",
+          "loginAt": "2026-11-05T15:05:00.000Z",
+          "createdAt": "2026-11-05T15:05:00.000Z"
+        }
+      ],
+      "pagination": {
+        "total": 154,
+        "page": 1,
+        "limit": 20,
+        "totalPages": 8
+      }
+    }
+  }
+  ```
+
+---
+
+## 3. UI/UX Implementation Guidelines for Frontend
+
+### 3.1 Admin & Experts Management View (`/admin/users`)
+
+#### 1. Accounts Data Table
+Display the list of administrative accounts with the following columns:
+1. **نام و نام خانوادگی (Full Name)**
+2. **نام کاربری (Username)**
+3. **نوع حساب (Role / Type Badge):**
+   - `SUPERADMIN`: بنفش / طلایی (مدیر ارشد)
+   - `ADMIN`: آبی (مدیر سامانه)
+   - `EXPERT`: سبز (کارشناس بررسی پرونده)
+4. **رسته‌های تخصصی قابل بررسی (Assigned Specializations):**
+   - For `EXPERT`: Show badge tags with specialization titles (e.g., `نرم‌افزار`, `سخت‌افزار`).
+   - For `ADMIN` / `SUPERADMIN`: Display `—` or `تمام رسته ها (دسترسی عمومی)`.
+5. **وضعیت (Status Toggle):** Active (سبز) / Inactive (قرمز).
+6. **تاریخ ایجاد (Creation Date):** Jalali formatted date (e.g., `۱۴۰۵/۰۸/۱۵`).
+7. **عملیات (Actions):**
+   - دکمه ویرایش (Edit modal)
+   - دکمه مدیریت دسترسی‌ها (Permissions modal)
+   - دکمه مشاهده تاریخچه ورود (View Login Logs)
+   - دکمه حذف (Delete with confirmation modal)
+
+#### 2. Create / Edit Account Modal Dialog
+Form fields layout:
+```
+┌────────────────────────────────────────────────────────┐
+│  افزودن / ویرایش حساب کاربری                            │
+├────────────────────────────────────────────────────────┤
+│ نام و نام خانوادگی: [_______________________________]   │
+│ نام کاربری (ایمیل/شناسه): [_________________________]   │
+│ کلمه عبور: [________________________________________]   │
+│                                                        │
+│ نقش حساب کاربری:                                       │
+│ ( ) مدیر سامانه (ADMIN)                                │
+│ ( ) کارشناس بررسی پرونده‌ها (EXPERT)                     │
+│                                                        │
+│ ┌────────────────────────────────────────────────────┐ │
+│ │  فیلد شرطی (فقط در صورت انتخاب نقش "کارشناس"):      │ │
+│ │  رسته‌های تخصصی قابل بررسی: (الزامی)                  │ │
+│ │  [ ✔ نرم‌افزار   ✔ شبکه و امنیت   ▼ انتخاب رسته ]   │ │
+│ └────────────────────────────────────────────────────┘ │
+│                                                        │
+│ [✔] حساب کاربری فعال باشد                              │
+│                                                        │
+│             [ انصراف ]        [ ذخیره اطلاعات ]        │
+└────────────────────────────────────────────────────────┘
+```
+
+#### 3. Frontend Form Validation Logic (TypeScript / Vue / React)
+```typescript
+// Example Yup / Zod schema or manual validation
+if (form.type === 'EXPERT') {
+  if (!form.reviewableSpecializations || form.reviewableSpecializations.length === 0) {
+    errors.reviewableSpecializations = 'انتخاب حداقل یک رسته تخصصی برای کارشناس الزامی است';
+  }
+}
+```
+
+---
+
+### 3.2 Login Audit Logs View (`/admin/login-logs`)
+
+#### 1. Filter Bar Controls
+- **جستجوی متنی (Search Input):** Search across username, full name, IP, or device.
+- **فیلتر نقش (Role Select):** همه / مدیر ارشد / مدیر سامانه / کارشناس.
+- **فیلتر وضعیت (Status Select):** همه / ورود موفق (SUCCESS) / ورود ناموفق (FAILED).
+- **بازه زمانی ورود (Jalali DatePicker Range):** از تاریخ / تا تاریخ.
+- **دکمه پاکسازی فیلترها (Reset Filters)**.
+
+#### 2. Logs Data Table Columns
+1. **زمان ورود (Login Timestamp):** فرمت شمسی با ساعت (مثال: `۱۴۰۵/۰۸/۱۵ - ۱۸:۴۲:۱۰`).
+2. **کاربر (User Info):**
+   - نام و نام خانوادگی
+   - نام کاربری (Username)
+   - نقش (Role badge)
+3. **آدرس IP:** مونو‌اسپیس با دکمه کپی سریع (مثال: `192.168.1.105`).
+4. **دستگاه و سیستم‌عامل (Device & OS):**
+   - آیکون دستگاه (Desktop / Laptop / Mobile / Tablet icon)
+   - نام سیستم‌عامل (e.g., Windows 10/11, macOS, Android)
+5. **مرورگر (Browser):**
+   - نام و نسخه مرورگر (Chrome 122, Firefox 120, Safari 17)
+6. **نتیجه ورود (Status Badge):**
+   - `SUCCESS`: سبز ("ورود موفق")
+   - `FAILED`: قرمز ("ورود ناموفق") + نمایش علت خطا در tooltip یا زیرتیتر (مانند "رمز عبور اشتباه").
+
+---
+
+### 3.3 Expert Dossier Review Workflow UI (`/expert/reviews`)
+
+When an `EXPERT` user logs in:
+1. The frontend reads `user.reviewableSpecializations` from `response.data.admin.reviewableSpecializations`.
+2. In the dossiers/skills list ("کارتابل بررسی مدارک و مهارت‌ها"), **filter automatically** by the expert's allowed specialization IDs:
+   ```typescript
+   const assignedSpecializationIds = authUser.reviewableSpecializations.map(s => s._id);
+   // Fetch pending skills matching these specializations
+   const queryParams = new URLSearchParams({
+     status: 'PENDING',
+     specializationIds: assignedSpecializationIds.join(','),
+   });
+   ```
+3. The expert UI displays a prominent banner indicating the expert's authorized branches:
+   > 📌 **رسته‌های تحت بررسی شما:** نرم‌افزار، امنیت فضای تبادل اطلاعات (افتا)
+
+---
+
+## 4. Referential Integrity & Delete Protection Contract
+
+When deleting lookups or admin records, the backend strictly enforces referential integrity:
+1. **Attempting to delete a `Specialization` assigned to an Expert:**
+   - **Status:** `409 Conflict`
+   - **Response:**
+     ```json
+     {
+       "success": false,
+       "message": "Cannot delete this record because it is used by: expert admins"
+     }
+     ```
+   - **UI Handling:** Display an error toast or modal alerting the user:
+     *"این رسته تخصصی به یک یا چند کارشناس بررسی پرونده منتسب است و امکان حذف آن وجود ندارد."*
+
+2. **Attempting to delete an Admin/Expert with login history or verification records:**
+   - **Status:** `409 Conflict`
+   - **Response:**
+     ```json
+     {
+       "success": false,
+       "message": "Cannot delete this record because it is used by: admin login logs"
+     }
+     ```
+   - **UI Handling:** Display alert suggesting deactivating (`isActive = false`) instead of deleting.

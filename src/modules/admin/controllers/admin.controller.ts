@@ -100,4 +100,28 @@ export class AdminController {
       next(error);
     }
   };
+
+  getLoginLogs = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const page = req.query.page ? parseInt(req.query.page as string, 10) : undefined;
+      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined;
+      const { adminId, username, adminType, status, startDate, endDate, search } = req.query;
+
+      const result = await this.adminService.getLoginLogs({
+        page,
+        limit,
+        adminId: adminId as string,
+        username: username as string,
+        adminType: adminType as string,
+        status: status as string,
+        startDate: startDate as string,
+        endDate: endDate as string,
+        search: search as string,
+      });
+
+      res.json(ApiResponse.success(result, 'Admin login logs retrieved successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
 }

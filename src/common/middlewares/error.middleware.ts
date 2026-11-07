@@ -20,7 +20,15 @@ export const errorHandler = (
   } else if (err.name === 'ValidationError') {
     // Mongoose Validation Error
     statusCode = 400;
-    message = 'Validation Error: Invalid input parameters';
+    const mongooseErrors = (err as any).errors;
+    if (mongooseErrors && typeof mongooseErrors === 'object') {
+      const messages = Object.values(mongooseErrors)
+        .map((e: any) => e.message || e.reason?.message || String(e))
+        .filter(Boolean);
+      message = messages.length > 0 ? messages.join(' | ') : 'Validation Error: Invalid input parameters';
+    } else {
+      message = (err as Error).message || 'Validation Error: Invalid input parameters';
+    }
     details = err;
   } else if (err.name === 'CastError') {
     // Mongoose Cast Error (Invalid ObjectId)
